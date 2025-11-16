@@ -195,13 +195,25 @@ def get_dashboard_data():
     elif period == 'last30':
         start_date = (today - timedelta(days=30)).isoformat()
         end_date = today.isoformat()
+    elif period == 'alltime':
+        # Get all visits without date filtering
+        visits = db.get_visits()
+        # Determine actual date range from visits
+        if visits:
+            start_date = min(v['date'] for v in visits)
+            end_date = max(v['date'] for v in visits)
+        else:
+            start_date = end_date = today.isoformat()
     elif period == 'custom':
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
     else:
         start_date = end_date = today.isoformat()
 
-    visits = db.get_visits(start_date, end_date)
+    # Get visits if not already retrieved (for alltime)
+    if period != 'alltime':
+        visits = db.get_visits(start_date, end_date)
+
     stats = calculate_statistics(visits)
 
     # Group by date for trend analysis
@@ -272,18 +284,17 @@ def export_data():
 
     visits = db.get_visits(start_date, end_date)
 
-    # Prepare data for Excel
+    # Prepare data for Excel (using import-compatible column names)
     export_data = []
     for i, visit in enumerate(visits, 1):
         row = {
-            'Encounter #': i,
-            'Date': visit['date'],
-            'Start Time': visit['start_time'],
-            'End Time': visit['end_time'],
-            'Duration (min)': visit['active_duration'] / 60,
-            'Visit Type': visit['visit_type'],
-            'Billing Code': visit['billing_code'],
-            'Comments': visit['comments']
+            'date': visit['date'],
+            'start_time': visit['start_time'],
+            'end_time': visit['end_time'],
+            'active_duration': visit['active_duration'],
+            'visit_type': visit['visit_type'],
+            'billing_code': visit['billing_code'],
+            'comments': visit['comments']
         }
 
         # Add custom fields

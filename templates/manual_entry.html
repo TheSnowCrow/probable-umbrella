@@ -31,21 +31,16 @@
         </div>
     </div>
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="visitType">Visit Type</label>
-            <select id="visitType">
-                <option value="">Select...</option>
-                <option value="Sick">Sick</option>
-                <option value="Well">Well</option>
-            </select>
-        </div>
-    </div>
-
     <div class="form-group">
         <label>Billing Codes (click to select)</label>
         <div id="billingCodesContainer" style="background-color: var(--bg-secondary); border-radius: 12px; padding: 1.5rem;">
             <!-- Billing codes will be loaded here -->
+        </div>
+        <div id="visitTypeIndicator" style="margin-top: 1rem; padding: 0.75rem; border-radius: 8px; display: none;">
+            <strong>Visit Type:</strong> <span id="visitTypeText"></span>
+        </div>
+        <div id="wellVisitWarning" class="alert alert-warning" style="display: none; margin-top: 1rem;">
+            ⚠️ Multiple well visit codes selected. Only one well visit code should be used per visit.
         </div>
     </div>
 
@@ -65,6 +60,42 @@
 <div id="message" style="margin-top: 1rem;"></div>
 
 <script>
+// Well visit codes for detection
+const WELL_VISIT_CODES = ['99381', '99382', '99383', '99384', '99385', '99391', '99392', '99393', '99394', '99395'];
+
+// Update visit type indicator based on selected codes
+function updateVisitTypeIndicator() {
+    const selectedCodes = Array.from(document.querySelectorAll('.billing-btn.selected')).map(btn => btn.dataset.code);
+    const wellVisitCodes = selectedCodes.filter(code => WELL_VISIT_CODES.includes(code));
+
+    const indicator = document.getElementById('visitTypeIndicator');
+    const visitTypeText = document.getElementById('visitTypeText');
+    const warning = document.getElementById('wellVisitWarning');
+
+    if (selectedCodes.length > 0) {
+        indicator.style.display = 'block';
+
+        if (wellVisitCodes.length > 0) {
+            visitTypeText.textContent = 'Well Visit';
+            visitTypeText.style.color = 'var(--accent-green)';
+
+            // Show warning if multiple well visit codes
+            if (wellVisitCodes.length > 1) {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        } else {
+            visitTypeText.textContent = 'Sick Visit';
+            visitTypeText.style.color = 'var(--accent-blue)';
+            warning.style.display = 'none';
+        }
+    } else {
+        indicator.style.display = 'none';
+        warning.style.display = 'none';
+    }
+}
+
 // Load billing codes with POS-style buttons
 async function loadBillingCodes() {
     const response = await fetch('/api/wrvu-lookup');
@@ -112,7 +143,10 @@ async function loadBillingCodes() {
                     <div class="billing-btn-wrvu">${codeInfo.wrvu} wRVU</div>
                 `;
 
-                button.onclick = () => button.classList.toggle('selected');
+                button.onclick = () => {
+                    button.classList.toggle('selected');
+                    updateVisitTypeIndicator();
+                };
                 gridDiv.appendChild(button);
             }
         });
@@ -211,7 +245,6 @@ async function saveManualVisit() {
     const startTime = document.getElementById('startTime').value;
     const endTime = document.getElementById('endTime').value;
     const duration = parseInt(document.getElementById('duration').value) || 0;
-    const visitType = document.getElementById('visitType').value;
     const comments = document.getElementById('comments').value;
 
     // Validation
@@ -230,6 +263,10 @@ async function saveManualVisit() {
     document.querySelectorAll('.billing-btn.selected').forEach(button => {
         billingCodes.push(button.dataset.code);
     });
+
+    // Auto-detect visit type from billing codes
+    const wellVisitCodes = billingCodes.filter(code => WELL_VISIT_CODES.includes(code));
+    const visitType = wellVisitCodes.length > 0 ? 'Well' : 'Sick';
 
     const billingCode = billingCodes.length > 1 ? JSON.stringify(billingCodes) : (billingCodes[0] || '');
 
@@ -277,7 +314,6 @@ function resetForm() {
     document.getElementById('startTime').value = '';
     document.getElementById('endTime').value = '';
     document.getElementById('duration').value = '';
-    document.getElementById('visitType').value = '';
     document.getElementById('comments').value = '';
 
     document.querySelectorAll('.billing-btn.selected').forEach(button => {
@@ -288,6 +324,7 @@ function resetForm() {
         field.value = '';
     });
 
+    updateVisitTypeIndicator();
     document.getElementById('message').innerHTML = '';
 }
 

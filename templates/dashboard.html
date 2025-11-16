@@ -12,6 +12,7 @@
             <button class="period-btn" data-period="week" onclick="changePeriod('week')">This Week</button>
             <button class="period-btn" data-period="month" onclick="changePeriod('month')">This Month</button>
             <button class="period-btn" data-period="last30" onclick="changePeriod('last30')">Last 30 Days</button>
+            <button class="period-btn" data-period="alltime" onclick="changePeriod('alltime')">All Time</button>
             <button class="period-btn" data-period="custom" onclick="showCustomRange()">Custom</button>
         </div>
         <button class="btn btn-secondary" onclick="toggleMoneyDisplay()" id="moneyToggle" style="margin-left: 1rem;">
@@ -424,6 +425,9 @@ function exportData() {
 
     if (currentPeriod === 'custom' && currentStartDate && currentEndDate) {
         url += `start_date=${currentStartDate}&end_date=${currentEndDate}`;
+    } else if (currentPeriod === 'alltime') {
+        // Don't add date parameters for all time - export everything
+        url = url.slice(0, -1); // Remove the trailing '?'
     } else {
         // Use the current period's date range
         const today = new Date();

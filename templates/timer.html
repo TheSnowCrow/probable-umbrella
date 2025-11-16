@@ -21,22 +21,16 @@
     <div class="visit-form" id="visitForm" style="display: none;">
         <h2 class="mb-3">Visit Details</h2>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label for="visitType">Visit Type</label>
-                <select id="visitType">
-                    <option value="">Select...</option>
-                    <option value="Sick">Sick</option>
-                    <option value="Well">Well</option>
-                </select>
-            </div>
-
-        </div>
-
         <div class="form-group">
             <label>Billing Codes (click to select)</label>
             <div id="billingCodesContainer" style="background-color: var(--bg-secondary); border-radius: 12px; padding: 1.5rem;">
                 <!-- Billing codes will be loaded here -->
+            </div>
+            <div id="visitTypeIndicator" style="margin-top: 1rem; padding: 0.75rem; border-radius: 8px; display: none;">
+                <strong>Visit Type:</strong> <span id="visitTypeText"></span>
+            </div>
+            <div id="wellVisitWarning" class="alert alert-warning" style="display: none; margin-top: 1rem;">
+                ⚠️ Multiple well visit codes selected. Only one well visit code should be used per visit.
             </div>
         </div>
 
@@ -127,9 +121,46 @@ async function loadBillingCodes() {
     });
 }
 
+// Well visit codes for detection
+const WELL_VISIT_CODES = ['99381', '99382', '99383', '99384', '99385', '99391', '99392', '99393', '99394', '99395'];
+
 // Toggle billing code selection
 function toggleBillingCode(button, code) {
     button.classList.toggle('selected');
+    updateVisitTypeIndicator();
+}
+
+// Update visit type indicator based on selected codes
+function updateVisitTypeIndicator() {
+    const selectedCodes = Array.from(document.querySelectorAll('.billing-btn.selected')).map(btn => btn.dataset.code);
+    const wellVisitCodes = selectedCodes.filter(code => WELL_VISIT_CODES.includes(code));
+
+    const indicator = document.getElementById('visitTypeIndicator');
+    const visitTypeText = document.getElementById('visitTypeText');
+    const warning = document.getElementById('wellVisitWarning');
+
+    if (selectedCodes.length > 0) {
+        indicator.style.display = 'block';
+
+        if (wellVisitCodes.length > 0) {
+            visitTypeText.textContent = 'Well Visit';
+            visitTypeText.style.color = 'var(--accent-green)';
+
+            // Show warning if multiple well visit codes
+            if (wellVisitCodes.length > 1) {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        } else {
+            visitTypeText.textContent = 'Sick Visit';
+            visitTypeText.style.color = 'var(--accent-blue)';
+            warning.style.display = 'none';
+        }
+    } else {
+        indicator.style.display = 'none';
+        warning.style.display = 'none';
+    }
 }
 
 // Load custom fields
@@ -276,13 +307,15 @@ function stopTimer() {
 }
 
 async function saveVisit() {
-    const visitType = document.getElementById('visitType').value;
-
     // Collect selected billing codes from buttons
     const billingCodes = [];
     document.querySelectorAll('.billing-btn.selected').forEach(button => {
         billingCodes.push(button.dataset.code);
     });
+
+    // Auto-detect visit type from billing codes
+    const wellVisitCodes = billingCodes.filter(code => WELL_VISIT_CODES.includes(code));
+    const visitType = wellVisitCodes.length > 0 ? 'Well' : 'Sick';
 
     // Store as JSON array if multiple, single string if one
     const billingCode = billingCodes.length > 1 ? JSON.stringify(billingCodes) : (billingCodes[0] || '');
