@@ -20,7 +20,7 @@
 </div>
 
 <!-- TIMER SECTION -->
-<div class="timer-container" style="margin-bottom: 3rem; border: 2px solid var(--border-color); border-radius: 12px; padding: 2rem;">
+<div class="timer-container" style="margin-bottom: 3rem; border: 2px solid var(--border-color); border-radius: 12px; padding: 1.5rem;">
     <h2 style="margin-top: 0; margin-bottom: 1.5rem;">Timer Mode</h2>
 
     <div class="encounter-info" id="encounterInfo">
@@ -38,6 +38,24 @@
 
     <div class="visit-form" id="visitForm" style="display: none;">
         <h3 class="mb-3">Visit Details</h3>
+
+        <!-- Time-based Billing Helper -->
+        <div id="timeBasedBilling" style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <strong>Visit Duration:</strong> <span id="visitDurationDisplay" style="color: var(--accent-blue); font-size: 1.1rem;">--:--</span>
+                    <span style="color: var(--text-secondary); margin-left: 0.5rem; font-size: 0.9rem;">(Time-based billing for sick visits)</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="autoSelectBillingCode('established')" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
+                        Auto-select: Established
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="autoSelectBillingCode('new')" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
+                        Auto-select: New Patient
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <div class="form-group">
             <label>Billing Codes (click to select)</label>
@@ -548,12 +566,85 @@ function stopTimer() {
     document.getElementById('stopBtn').style.display = 'none';
     document.getElementById('visitForm').style.display = 'block';
 
+    // Update visit duration display for time-based billing
+    const minutes = Math.floor(activeDuration / 60);
+    const seconds = activeDuration % 60;
+    document.getElementById('visitDurationDisplay').textContent = `${minutes}:${String(seconds).padStart(2, '0')} (${minutes} min)`;
+
     // Store the duration for when we save
     window.currentVisitData = {
         startTime: new Date(startTime).toISOString(),
         endTime: new Date(endTime).toISOString(),
         activeDuration: activeDuration
     };
+}
+
+// Time-based billing code selection
+function autoSelectBillingCode(patientType) {
+    if (!window.currentVisitData) {
+        alert('No visit data available');
+        return;
+    }
+
+    const durationMinutes = Math.floor(window.currentVisitData.activeDuration / 60);
+    let selectedCode = null;
+
+    // Time-based billing mappings
+    if (patientType === 'established') {
+        if (durationMinutes >= 10 && durationMinutes <= 19) {
+            selectedCode = '99212';
+        } else if (durationMinutes >= 20 && durationMinutes <= 29) {
+            selectedCode = '99213';
+        } else if (durationMinutes >= 30 && durationMinutes <= 39) {
+            selectedCode = '99214';
+        } else if (durationMinutes >= 40 && durationMinutes <= 54) {
+            selectedCode = '99215';
+        } else {
+            // Default to highest or lowest based on duration
+            if (durationMinutes < 10) {
+                selectedCode = '99212'; // Minimum
+            } else {
+                selectedCode = '99215'; // Maximum for 55+ minutes
+            }
+        }
+    } else if (patientType === 'new') {
+        if (durationMinutes >= 15 && durationMinutes <= 29) {
+            selectedCode = '99202';
+        } else if (durationMinutes >= 30 && durationMinutes <= 44) {
+            selectedCode = '99203';
+        } else if (durationMinutes >= 45 && durationMinutes <= 59) {
+            selectedCode = '99204';
+        } else if (durationMinutes >= 60 && durationMinutes <= 74) {
+            selectedCode = '99205';
+        } else {
+            // Default to closest match
+            if (durationMinutes < 15) {
+                selectedCode = '99202'; // Minimum
+            } else {
+                selectedCode = '99205'; // Maximum for 75+ minutes
+            }
+        }
+    }
+
+    if (selectedCode) {
+        // Deselect all sick visit codes (established and new patient codes)
+        const sickVisitCodes = ['99212', '99213', '99214', '99215', '99202', '99203', '99204', '99205'];
+        document.querySelectorAll('#billingCodesContainer .billing-btn').forEach(button => {
+            if (sickVisitCodes.includes(button.dataset.code)) {
+                button.classList.remove('selected');
+            }
+        });
+
+        // Select the calculated code
+        const targetButton = document.querySelector(`#billingCodesContainer .billing-btn[data-code="${selectedCode}"]`);
+        if (targetButton) {
+            targetButton.classList.add('selected');
+            updateVisitTypeIndicator();
+
+            // Scroll to the billing codes section so user can see the selection
+            targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
 }
 
 // SAVE FUNCTIONS
