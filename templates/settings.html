@@ -6,6 +6,25 @@
 {% block content %}
 <h1 class="mb-4">Settings</h1>
 
+<!-- wRVU Conversion Rate -->
+<div class="settings-section">
+    <h2>wRVU Conversion Rate</h2>
+    <p class="text-muted mb-3">Set the dollar value per wRVU (applies to new visits going forward)</p>
+
+    <div style="max-width: 400px;">
+        <div class="form-group">
+            <label for="conversionRate">Dollar Value per wRVU</label>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <span style="font-size: 1.2rem;">$</span>
+                <input type="number" id="conversionRate" value="{{ conversion_rate }}" step="0.01" min="0"
+                       style="flex: 1; background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: 8px; font-size: 1rem;">
+                <button class="btn btn-primary" onclick="saveConversionRate()">Save</button>
+            </div>
+        </div>
+        <div id="conversionRateMessage" style="margin-top: 0.5rem;"></div>
+    </div>
+</div>
+
 <div class="settings-section">
     <h2>Custom Fields</h2>
     <p class="text-muted mb-3">Add custom fields to track additional data with each visit</p>
@@ -70,6 +89,33 @@
 </div>
 
 <script>
+async function saveConversionRate() {
+    const rate = document.getElementById('conversionRate').value;
+    const messageDiv = document.getElementById('conversionRateMessage');
+
+    if (!rate || rate <= 0) {
+        messageDiv.innerHTML = '<span style="color: var(--accent-red);">Please enter a valid rate</span>';
+        return;
+    }
+
+    const response = await fetch('/api/wrvu-conversion-rate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rate: parseFloat(rate) })
+    });
+
+    if (response.ok) {
+        messageDiv.innerHTML = '<span style="color: var(--accent-green);">✓ Conversion rate saved successfully</span>';
+        setTimeout(() => {
+            messageDiv.innerHTML = '';
+        }, 3000);
+    } else {
+        messageDiv.innerHTML = '<span style="color: var(--accent-red);">Error saving conversion rate</span>';
+    }
+}
+
 function toggleOptionsField() {
     const fieldType = document.getElementById('fieldType').value;
     const optionsGroup = document.getElementById('optionsGroup');

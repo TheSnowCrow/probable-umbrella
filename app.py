@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, jsonify, send_file
-from database import Database
+from database import Database, WRVU_LOOKUP, calculate_wrvu
 from datetime import datetime, date, timedelta
 import pandas as pd
 from io import BytesIO
 from collections import defaultdict
+import json
 
 app = Flask(__name__)
 db = Database()
@@ -29,23 +30,47 @@ def calculate_statistics(visits):
             'total_duration': 0,
             'billing_codes': {},
             'visit_types': {},
-            'custom_field_stats': {}
+            'custom_field_stats': {},
+            'total_wrvu': 0,
+            'avg_wrvu': 0,
+            'days_of_week': {}
         }
 
     total_duration = sum(v['active_duration'] for v in visits)
     avg_duration = total_duration / len(visits) if visits else 0
 
-    # Count billing codes
+    # Count billing codes and calculate wRVUs
     billing_codes = defaultdict(int)
+    total_wrvu = 0.0
     for v in visits:
         if v['billing_code']:
-            billing_codes[v['billing_code']] += 1
+            # Handle multiple billing codes
+            try:
+                codes = json.loads(v['billing_code']) if v['billing_code'].startswith('[') else [v['billing_code']]
+            except:
+                codes = [v['billing_code']]
+
+            for code in codes:
+                code = code.strip()
+                if code:
+                    billing_codes[code] += 1
+
+            # Calculate wRVU for this visit
+            total_wrvu += calculate_wrvu(v['billing_code'])
+
+    avg_wrvu = total_wrvu / len(visits) if visits else 0
 
     # Count visit types
     visit_types = defaultdict(int)
     for v in visits:
         if v['visit_type']:
             visit_types[v['visit_type']] += 1
+
+    # Count days of week
+    days_of_week = defaultdict(int)
+    for v in visits:
+        if v.get('day_of_week'):
+            days_of_week[v['day_of_week']] += 1
 
     # Calculate average duration by visit type
     duration_by_type = defaultdict(list)
@@ -71,7 +96,10 @@ def calculate_statistics(visits):
         'billing_codes': dict(billing_codes),
         'visit_types': dict(visit_types),
         'avg_by_type': avg_by_type,
-        'custom_field_stats': dict(custom_field_stats)
+        'custom_field_stats': dict(custom_field_stats),
+        'total_wrvu': total_wrvu,
+        'avg_wrvu': avg_wrvu,
+        'days_of_week': dict(days_of_week)
     }
 
 # Routes
@@ -186,7 +214,10 @@ def get_dashboard_data():
 def settings():
     """Settings page for managing custom fields"""
     custom_fields = db.get_custom_fields()
-    return render_template('settings.html', custom_fields=custom_fields)
+    conversion_rate = db.get_wrvu_conversion_rate()
+    return render_template('settings.html',
+                         custom_fields=custom_fields,
+                         conversion_rate=conversion_rate)
 
 @app.route('/api/custom-field', methods=['POST'])
 def create_custom_field():
@@ -203,6 +234,24 @@ def create_custom_field():
 def delete_custom_field(field_id):
     """Delete a custom field"""
     db.delete_custom_field(field_id)
+    return jsonify({'success': True})
+
+@app.route('/api/wrvu-lookup')
+def get_wrvu_lookup():
+    """Get wRVU lookup table"""
+    return jsonify(WRVU_LOOKUP)
+
+@app.route('/api/wrvu-conversion-rate', methods=['GET'])
+def get_wrvu_conversion_rate():
+    """Get wRVU conversion rate"""
+    rate = db.get_wrvu_conversion_rate()
+    return jsonify({'rate': rate})
+
+@app.route('/api/wrvu-conversion-rate', methods=['POST'])
+def set_wrvu_conversion_rate():
+    """Set wRVU conversion rate"""
+    data = request.json
+    db.set_wrvu_conversion_rate(float(data['rate']))
     return jsonify({'success': True})
 
 @app.route('/api/export')
@@ -277,6 +326,10 @@ def export_data():
 @app.template_filter('format_duration')
 def format_duration_filter(seconds):
     return format_duration(seconds)
+
+@app.template_filter('calc_wrvu')
+def calc_wrvu_filter(billing_code):
+    return calculate_wrvu(billing_code)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

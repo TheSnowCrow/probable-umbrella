@@ -6,9 +6,12 @@
 {% block content %}
 <div class="dashboard-header">
     <h1>Daily Summary</h1>
-    <div class="date-selector">
+    <div style="display: flex; gap: 1rem; align-items: center;">
         <input type="date" id="dateSelector" value="{{ date }}" onchange="changeDate()"
                style="background-color: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 8px;">
+        <button class="btn btn-secondary" onclick="toggleMoneyDisplay()" id="moneyToggle">
+            Show $ Values
+        </button>
     </div>
 </div>
 
@@ -27,6 +30,21 @@
     <div class="stat-card">
         <div class="stat-label">Total Time</div>
         <div class="stat-value">{{ (stats.total_duration / 60) | round(1) }} min</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total wRVU</div>
+        <div class="stat-value">{{ stats.total_wrvu | round(2) }}</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Average wRVU</div>
+        <div class="stat-value">{{ stats.avg_wrvu | round(2) }}</div>
+    </div>
+
+    <div class="stat-card money-value">
+        <div class="stat-label">Total Value</div>
+        <div class="stat-value" id="totalValue">***</div>
     </div>
 </div>
 
@@ -88,10 +106,12 @@
         <thead>
             <tr>
                 <th>Encounter</th>
+                <th>Day</th>
                 <th>Start Time</th>
                 <th>Duration</th>
                 <th>Visit Type</th>
                 <th>Billing Code</th>
+                <th>wRVU</th>
                 <th>Comments</th>
                 {% for field in custom_fields %}
                 <th>{{ field.field_name }}</th>
@@ -103,10 +123,12 @@
             {% for visit in visits %}
             <tr id="visit-{{ visit.id }}">
                 <td>#{{ loop.revindex }}</td>
+                <td>{{ visit.day_of_week or '-' }}</td>
                 <td>{{ visit.start_time.split('T')[1][:5] if 'T' in visit.start_time else visit.start_time }}</td>
                 <td>{{ format_duration(visit.active_duration) }}</td>
                 <td>{{ visit.visit_type or '-' }}</td>
                 <td>{{ visit.billing_code or '-' }}</td>
+                <td>{{ visit.billing_code | calc_wrvu | round(2) if visit.billing_code else '-' }}</td>
                 <td>{{ visit.comments or '-' }}</td>
                 {% for field in custom_fields %}
                 <td>{{ visit.custom_fields.get(field.field_name, '-') }}</td>
@@ -127,6 +149,41 @@
 {% endif %}
 
 <script>
+// Stats data from server
+const stats = {
+    totalWrvu: {{ stats.total_wrvu }},
+    avgWrvu: {{ stats.avg_wrvu }}
+};
+
+let conversionRate = 36.00;
+let moneyVisible = false;
+
+// Load conversion rate
+async function loadConversionRate() {
+    const response = await fetch('/api/wrvu-conversion-rate');
+    const data = await response.json();
+    conversionRate = data.rate;
+}
+
+function toggleMoneyDisplay() {
+    moneyVisible = !moneyVisible;
+    const toggleBtn = document.getElementById('moneyToggle');
+    const totalValueEl = document.getElementById('totalValue');
+
+    if (moneyVisible) {
+        const totalValue = stats.totalWrvu * conversionRate;
+        totalValueEl.textContent = '$' + totalValue.toFixed(2);
+        toggleBtn.textContent = 'Hide $ Values';
+        toggleBtn.classList.remove('btn-secondary');
+        toggleBtn.classList.add('btn-primary');
+    } else {
+        totalValueEl.textContent = '***';
+        toggleBtn.textContent = 'Show $ Values';
+        toggleBtn.classList.remove('btn-primary');
+        toggleBtn.classList.add('btn-secondary');
+    }
+}
+
 function changeDate() {
     const date = document.getElementById('dateSelector').value;
     window.location.href = `/daily-summary?date=${date}`;
@@ -147,5 +204,8 @@ async function deleteVisit(visitId) {
         alert('Error deleting visit. Please try again.');
     }
 }
+
+// Initialize
+loadConversionRate();
 </script>
 {% endblock %}

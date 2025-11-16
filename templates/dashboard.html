@@ -14,6 +14,9 @@
             <button class="period-btn" data-period="last30" onclick="changePeriod('last30')">Last 30 Days</button>
             <button class="period-btn" data-period="custom" onclick="showCustomRange()">Custom</button>
         </div>
+        <button class="btn btn-secondary" onclick="toggleMoneyDisplay()" id="moneyToggle" style="margin-left: 1rem;">
+            Show $ Values
+        </button>
     </div>
 </div>
 
@@ -45,6 +48,21 @@
     <div class="stat-card">
         <div class="stat-label">Total Time</div>
         <div class="stat-value" id="totalDuration">-</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total wRVU</div>
+        <div class="stat-value" id="totalWrvu">-</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Average wRVU</div>
+        <div class="stat-value" id="avgWrvu">-</div>
+    </div>
+
+    <div class="stat-card money-value">
+        <div class="stat-label">Total Value</div>
+        <div class="stat-value" id="totalValue">***</div>
     </div>
 </div>
 
@@ -142,10 +160,49 @@ async function loadDashboardData() {
     document.getElementById('dateRangeDisplay').textContent = `${startDate} - ${endDate}`;
 }
 
+let currentStats = {};
+let conversionRate = 36.00;
+let moneyVisible = false;
+
+// Load conversion rate
+async function loadConversionRate() {
+    const response = await fetch('/api/wrvu-conversion-rate');
+    const data = await response.json();
+    conversionRate = data.rate;
+}
+
+function toggleMoneyDisplay() {
+    moneyVisible = !moneyVisible;
+    const toggleBtn = document.getElementById('moneyToggle');
+    const totalValueEl = document.getElementById('totalValue');
+
+    if (moneyVisible) {
+        const totalValue = currentStats.total_wrvu * conversionRate;
+        totalValueEl.textContent = '$' + totalValue.toFixed(2);
+        toggleBtn.textContent = 'Hide $ Values';
+        toggleBtn.classList.remove('btn-secondary');
+        toggleBtn.classList.add('btn-primary');
+    } else {
+        totalValueEl.textContent = '***';
+        toggleBtn.textContent = 'Show $ Values';
+        toggleBtn.classList.remove('btn-primary');
+        toggleBtn.classList.add('btn-secondary');
+    }
+}
+
 function updateStatistics(stats) {
+    currentStats = stats;
     document.getElementById('totalVisits').textContent = stats.total_visits;
     document.getElementById('avgDuration').textContent = `${(stats.avg_duration / 60).toFixed(1)} min`;
     document.getElementById('totalDuration').textContent = `${(stats.total_duration / 60).toFixed(1)} min`;
+    document.getElementById('totalWrvu').textContent = stats.total_wrvu.toFixed(2);
+    document.getElementById('avgWrvu').textContent = stats.avg_wrvu.toFixed(2);
+
+    // Update money display if visible
+    if (moneyVisible) {
+        const totalValue = stats.total_wrvu * conversionRate;
+        document.getElementById('totalValue').textContent = '$' + totalValue.toFixed(2);
+    }
 }
 
 function updateCharts(stats, dailyStats) {
@@ -339,6 +396,7 @@ function exportData() {
 }
 
 // Initialize
+loadConversionRate();
 loadDashboardData();
 </script>
 {% endblock %}

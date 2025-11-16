@@ -31,24 +31,12 @@
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="billingCode">Billing Code</label>
-                <select id="billingCode">
-                    <option value="">Select...</option>
-                    <option value="99212">99212</option>
-                    <option value="99213">99213</option>
-                    <option value="99214">99214</option>
-                    <option value="99215">99215</option>
-                    <option value="99202">99202</option>
-                    <option value="99203">99203</option>
-                    <option value="99204">99204</option>
-                    <option value="99205">99205</option>
-                    <option value="99391">99391</option>
-                    <option value="99392">99392</option>
-                    <option value="99393">99393</option>
-                    <option value="99394">99394</option>
-                    <option value="99395">99395</option>
-                </select>
+        </div>
+
+        <div class="form-group">
+            <label>Billing Codes (select all that apply)</label>
+            <div id="billingCodesContainer" style="max-height: 400px; overflow-y: auto; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                <!-- Billing codes will be loaded here -->
             </div>
         </div>
 
@@ -79,6 +67,73 @@ async function loadEncounterNumber() {
     const response = await fetch(`/api/daily-visits?date=${today}`);
     const data = await response.json();
     encounterNumber = data.visits.length;
+}
+
+// Load billing codes
+async function loadBillingCodes() {
+    const response = await fetch('/api/wrvu-lookup');
+    const wrvuLookup = await response.json();
+
+    const container = document.getElementById('billingCodesContainer');
+    container.innerHTML = '';
+
+    // Group codes by category for better organization
+    const established = ['99212', '99213', '99214', '99215'];
+    const newPatient = ['99202', '99203', '99204', '99205'];
+    const wellNew = ['99381', '99382', '99383', '99384', '99385'];
+    const wellEst = ['99391', '99392', '99393', '99394', '99395'];
+    const modifier = ['25'];
+
+    const categories = [
+        {title: 'Established Patient', codes: established},
+        {title: 'New Patient', codes: newPatient},
+        {title: 'Well Visit (New)', codes: wellNew},
+        {title: 'Well Visit (Established)', codes: wellEst},
+        {title: 'Modifier', codes: modifier}
+    ];
+
+    categories.forEach(category => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.style.marginBottom = '1rem';
+
+        const categoryTitle = document.createElement('h4');
+        categoryTitle.textContent = category.title;
+        categoryTitle.style.fontSize = '0.9rem';
+        categoryTitle.style.color = 'var(--text-secondary)';
+        categoryTitle.style.marginBottom = '0.5rem';
+        categoryDiv.appendChild(categoryTitle);
+
+        category.codes.forEach(code => {
+            if (wrvuLookup[code]) {
+                const codeInfo = wrvuLookup[code];
+                const label = document.createElement('label');
+                label.style.display = 'flex';
+                label.style.alignItems = 'center';
+                label.style.padding = '0.5rem';
+                label.style.cursor = 'pointer';
+                label.style.borderRadius = '4px';
+                label.style.marginBottom = '0.25rem';
+
+                label.onmouseover = () => label.style.backgroundColor = 'var(--bg-secondary)';
+                label.onmouseout = () => label.style.backgroundColor = 'transparent';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'billingCode';
+                checkbox.value = code;
+                checkbox.style.marginRight = '0.75rem';
+
+                const text = document.createElement('span');
+                text.innerHTML = `<strong>${code}</strong> - ${codeInfo.description} <span style="color: var(--text-secondary);">(${codeInfo.wrvu} wRVU)</span>`;
+
+                label.appendChild(checkbox);
+                label.appendChild(text);
+                categoryDiv.appendChild(label);
+            }
+        });
+
+        container.appendChild(categoryDiv);
+    });
 }
 
 // Load custom fields
@@ -226,7 +281,16 @@ function stopTimer() {
 
 async function saveVisit() {
     const visitType = document.getElementById('visitType').value;
-    const billingCode = document.getElementById('billingCode').value;
+
+    // Collect checked billing codes
+    const billingCodes = [];
+    document.querySelectorAll('input[name="billingCode"]:checked').forEach(checkbox => {
+        billingCodes.push(checkbox.value);
+    });
+
+    // Store as JSON array if multiple, single string if one
+    const billingCode = billingCodes.length > 1 ? JSON.stringify(billingCodes) : (billingCodes[0] || '');
+
     const comments = document.getElementById('comments').value;
 
     // Collect custom fields
@@ -259,7 +323,9 @@ async function saveVisit() {
     if (response.ok) {
         // Reset form
         document.getElementById('visitType').value = '';
-        document.getElementById('billingCode').value = '';
+        document.querySelectorAll('input[name="billingCode"]:checked').forEach(checkbox => {
+            checkbox.checked = false;
+        });
         document.getElementById('comments').value = '';
         document.querySelectorAll('[id^="custom_"]').forEach(field => {
             field.value = '';
@@ -277,6 +343,7 @@ async function saveVisit() {
 
 // Initialize
 loadEncounterNumber();
+loadBillingCodes();
 loadCustomFields();
 </script>
 {% endblock %}
