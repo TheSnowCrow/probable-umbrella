@@ -14,6 +14,11 @@
     </div>
 </div>
 
+<!-- Bible Verse Banner -->
+<div id="verseBanner" style="background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%); border-left: 4px solid var(--accent-blue); border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; font-style: italic; color: var(--text-secondary);">
+    <div id="verseText" style="font-size: 1rem; line-height: 1.6;"></div>
+</div>
+
 <!-- Success Flash Message -->
 <div id="flashMessage" style="display: none; background-color: var(--accent-green); color: white; padding: 1rem 1.5rem; border-radius: 8px; margin-bottom: 1rem; animation: slideDown 0.3s ease-out;">
     ✓ Visit saved successfully!
@@ -288,9 +293,29 @@ function updateVisitTypeIndicator() {
     const selectedCodes = Array.from(document.querySelectorAll('#billingCodesContainer .billing-btn.selected')).map(btn => btn.dataset.code);
     const wellVisitCodes = selectedCodes.filter(code => WELL_VISIT_CODES.includes(code));
 
+    // Sick visit codes (established and new patient)
+    const sickVisitCodes = ['99212', '99213', '99214', '99215', '99202', '99203', '99204', '99205'];
+    const hasSickCode = selectedCodes.some(code => sickVisitCodes.includes(code));
+
     const indicator = document.getElementById('visitTypeIndicator');
     const visitTypeText = document.getElementById('visitTypeText');
     const warning = document.getElementById('wellVisitWarning');
+
+    // Auto-activate 25 modifier if both well visit and sick visit codes are present
+    const modifier25Button = document.querySelector('#billingCodesContainer .billing-btn[data-code="25"]');
+    if (modifier25Button) {
+        if (wellVisitCodes.length > 0 && hasSickCode) {
+            // Both well and sick codes present - auto-select 25 modifier
+            if (!modifier25Button.classList.contains('selected')) {
+                modifier25Button.classList.add('selected');
+            }
+        } else {
+            // Either well or sick codes missing - deselect 25 modifier
+            if (modifier25Button.classList.contains('selected')) {
+                modifier25Button.classList.remove('selected');
+            }
+        }
+    }
 
     if (selectedCodes.length > 0) {
         indicator.style.display = 'block';
@@ -320,9 +345,29 @@ function updateManualVisitTypeIndicator() {
     const selectedCodes = Array.from(document.querySelectorAll('#manualBillingCodesContainer .billing-btn.selected')).map(btn => btn.dataset.code);
     const wellVisitCodes = selectedCodes.filter(code => WELL_VISIT_CODES.includes(code));
 
+    // Sick visit codes (established and new patient)
+    const sickVisitCodes = ['99212', '99213', '99214', '99215', '99202', '99203', '99204', '99205'];
+    const hasSickCode = selectedCodes.some(code => sickVisitCodes.includes(code));
+
     const indicator = document.getElementById('manualVisitTypeIndicator');
     const visitTypeText = document.getElementById('manualVisitTypeText');
     const warning = document.getElementById('manualWellVisitWarning');
+
+    // Auto-activate 25 modifier if both well visit and sick visit codes are present
+    const modifier25Button = document.querySelector('#manualBillingCodesContainer .billing-btn[data-code="25"]');
+    if (modifier25Button) {
+        if (wellVisitCodes.length > 0 && hasSickCode) {
+            // Both well and sick codes present - auto-select 25 modifier
+            if (!modifier25Button.classList.contains('selected')) {
+                modifier25Button.classList.add('selected');
+            }
+        } else {
+            // Either well or sick codes missing - deselect 25 modifier
+            if (modifier25Button.classList.contains('selected')) {
+                modifier25Button.classList.remove('selected');
+            }
+        }
+    }
 
     if (selectedCodes.length > 0) {
         indicator.style.display = 'block';
@@ -841,12 +886,65 @@ function showFlashMessage() {
     }, 3000);
 }
 
+// Bible verses for inspiration
+const bibleVerses = [
+    "Galatians 6:9 - \"And let us not grow weary of doing good, for in due season we will reap, if we do not give up.\"",
+    "Colossians 3:23 - \"Whatever you do, work heartily, as for the Lord and not for men.\"",
+    "Proverbs 16:3 - \"Commit your work to the Lord, and your plans will be established.\"",
+    "1 Corinthians 15:58 - \"Therefore, my beloved brothers, be steadfast, immovable, always abounding in the work of the Lord, knowing that in the Lord your labor is not in vain.\"",
+    "Proverbs 12:14 - \"From the fruit of his mouth a man is satisfied with good, and the work of a man's hand comes back to him.\"",
+    "Ecclesiastes 9:10 - \"Whatever your hand finds to do, do it with your might, for there is no work or thought or knowledge or wisdom in Sheol, to which you are going.\"",
+    "Psalm 90:17 - \"Let the favor of the Lord our God be upon us, and establish the work of our hands upon us; yes, establish the work of our hands!\"",
+    "Proverbs 14:23 - \"In all toil there is profit, but mere talk tends only to poverty.\"",
+    "2 Thessalonians 3:13 - \"As for you, brothers, do not grow weary in doing good.\"",
+    "Ephesians 6:7-8 - \"Rendering service with a good will as to the Lord and not to man, knowing that whatever good anyone does, this he will receive back from the Lord.\"",
+    "Proverbs 13:4 - \"The soul of the sluggard craves and gets nothing, while the soul of the diligent is richly supplied.\"",
+    "1 Timothy 5:18 - \"For the Scripture says, 'You shall not muzzle an ox when it treads out the grain,' and, 'The laborer deserves his wages.'\"",
+    "Proverbs 22:29 - \"Do you see a man skillful in his work? He will stand before kings; he will not stand before obscure men.\"",
+    "Hebrews 6:10 - \"For God is not unjust so as to overlook your work and the love that you have shown for his name in serving the saints, as you still do.\"",
+    "James 1:25 - \"But the one who looks into the perfect law, the law of liberty, and perseveres, being no hearer who forgets but a doer who acts, he will be blessed in his doing.\"",
+    "Proverbs 10:4 - \"A slack hand causes poverty, but the hand of the diligent makes rich.\"",
+    "Proverbs 21:5 - \"The plans of the diligent lead surely to abundance, but everyone who is hasty comes only to poverty.\"",
+    "1 Corinthians 10:31 - \"So, whether you eat or drink, or whatever you do, do all to the glory of God.\"",
+    "Philippians 2:14-15 - \"Do all things without grumbling or disputing, that you may be blameless and innocent, children of God without blemish in the midst of a crooked and twisted generation.\"",
+    "Titus 3:14 - \"And let our people learn to devote themselves to good works, so as to help cases of urgent need, and not be unfruitful.\"",
+    "Isaiah 26:3 - \"You keep him in perfect peace whose mind is stayed on you, because he trusts in you.\"",
+    "Philippians 4:13 - \"I can do all things through him who strengthens me.\"",
+    "Isaiah 41:10 - \"Fear not, for I am with you; be not dismayed, for I am your God; I will strengthen you, I will help you, I will uphold you with my righteous right hand.\"",
+    "Jeremiah 29:11 - \"For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope.\"",
+    "Romans 8:28 - \"And we know that for those who love God all things work together for good, for those who are called according to his purpose.\"",
+    "Proverbs 3:5-6 - \"Trust in the Lord with all your heart, and do not lean on your own understanding. In all your ways acknowledge him, and he will make straight your paths.\"",
+    "Psalm 46:1 - \"God is our refuge and strength, a very present help in trouble.\"",
+    "2 Corinthians 12:9 - \"But he said to me, 'My grace is sufficient for you, for my power is made perfect in weakness.' Therefore I will boast all the more gladly of my weaknesses, so that the power of Christ may rest upon me.\"",
+    "Joshua 1:9 - \"Have I not commanded you? Be strong and courageous. Do not be frightened, and do not be dismayed, for the Lord your God is with you wherever you go.\"",
+    "Psalm 37:4 - \"Delight yourself in the Lord, and he will give you the desires of your heart.\"",
+    "Matthew 11:28 - \"Come to me, all who labor and are heavy laden, and I will give you rest.\"",
+    "Philippians 4:6-7 - \"Do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus.\"",
+    "Romans 15:13 - \"May the God of hope fill you with all joy and peace in believing, so that by the power of the Holy Spirit you may abound in hope.\"",
+    "Psalm 23:4 - \"Even though I walk through the valley of the shadow of death, I will fear no evil, for you are with me; your rod and your staff, they comfort me.\"",
+    "1 Peter 5:7 - \"Casting all your anxieties on him, because he cares for you.\"",
+    "Nahum 1:7 - \"The Lord is good, a stronghold in the day of trouble; he knows those who take refuge in him.\"",
+    "Lamentations 3:22-23 - \"The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.\"",
+    "Psalm 55:22 - \"Cast your burden on the Lord, and he will sustain you; he will never permit the righteous to be moved.\"",
+    "John 16:33 - \"I have said these things to you, that in me you may have peace. In the world you will have tribulation. But take heart; I have overcome the world.\"",
+    "2 Timothy 1:7 - \"For God gave us a spirit not of fear but of power and love and self-control.\""
+];
+
+function displayRandomVerse() {
+    const randomIndex = Math.floor(Math.random() * bibleVerses.length);
+    const verseElement = document.getElementById('verseText');
+    if (verseElement) {
+        verseElement.textContent = bibleVerses[randomIndex];
+    }
+}
+
 // Initialize
 loadEncounterNumber();
 loadBillingCodes();
 loadManualBillingCodes();
 loadCustomFields();
 loadManualCustomFields();
+displayRandomVerse();
 
 // Set today's date as default for manual entry
 document.addEventListener('DOMContentLoaded', function() {
