@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Timer - Clinic Visit Tracker{% endblock %}
+{% block nav_timer %}active{% endblock %}
+
+{% block content %}
+<div class="timer-container">
+    <div class="encounter-info" id="encounterInfo">
+        <span id="encounterLabel">Ready to start</span>
+    </div>
+
+    <div class="timer-display" id="timerDisplay">00:00</div>
+
+    <div class="timer-controls">
+        <button class="btn btn-success btn-large" id="startBtn" onclick="startTimer()">Start Visit</button>
+        <button class="btn btn-secondary btn-large" id="pauseBtn" onclick="pauseTimer()" style="display: none;">Pause</button>
+        <button class="btn btn-primary btn-large" id="resumeBtn" onclick="resumeTimer()" style="display: none;">Resume</button>
+        <button class="btn btn-danger btn-large" id="stopBtn" onclick="stopTimer()" style="display: none;">End Visit</button>
+    </div>
+
+    <div class="visit-form" id="visitForm" style="display: none;">
+        <h2 class="mb-3">Visit Details</h2>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="visitType">Visit Type</label>
+                <select id="visitType">
+                    <option value="">Select...</option>
+                    <option value="Sick">Sick</option>
+                    <option value="Well">Well</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="billingCode">Billing Code</label>
+                <select id="billingCode">
+                    <option value="">Select...</option>
+                    <option value="99212">99212</option>
+                    <option value="99213">99213</option>
+                    <option value="99214">99214</option>
+                    <option value="99215">99215</option>
+                    <option value="99202">99202</option>
+                    <option value="99203">99203</option>
+                    <option value="99204">99204</option>
+                    <option value="99205">99205</option>
+                    <option value="99391">99391</option>
+                    <option value="99392">99392</option>
+                    <option value="99393">99393</option>
+                    <option value="99394">99394</option>
+                    <option value="99395">99395</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="customFieldsContainer"></div>
+
+        <div class="form-group">
+            <label for="comments">Comments</label>
+            <textarea id="comments" placeholder="Notes about this visit..."></textarea>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn btn-success btn-large" onclick="saveVisit()">Save & Start Next Visit</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let timerInterval = null;
+let startTime = null;
+let pausedTime = 0;
+let totalPausedDuration = 0;
+let isPaused = false;
+let encounterNumber = 0;
+
+// Load encounter number from today's visits
+async function loadEncounterNumber() {
+    const today = new Date().toISOString().split('T')[0];
+    const response = await fetch(`/api/daily-visits?date=${today}`);
+    const data = await response.json();
+    encounterNumber = data.visits.length;
+}
+
+// Load custom fields
+async function loadCustomFields() {
+    const response = await fetch('/api/custom-fields');
+    const fields = await response.json();
+
+    const container = document.getElementById('customFieldsContainer');
+    container.innerHTML = '';
+
+    if (fields.length > 0) {
+        const row = document.createElement('div');
+        row.className = 'form-row';
+
+        fields.forEach(field => {
+            const formGroup = document.createElement('div');
+            formGroup.className = 'form-group';
+
+            const label = document.createElement('label');
+            label.textContent = field.field_name;
+            formGroup.appendChild(label);
+
+            if (field.field_type === 'dropdown') {
+                const select = document.createElement('select');
+                select.id = `custom_${field.id}`;
+                select.dataset.fieldName = field.field_name;
+
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select...';
+                select.appendChild(defaultOption);
+
+                if (field.options) {
+                    field.options.forEach(option => {
+                        const opt = document.createElement('option');
+                        opt.value = option;
+                        opt.textContent = option;
+                        select.appendChild(opt);
+                    });
+                }
+
+                formGroup.appendChild(select);
+            } else if (field.field_type === 'number') {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `custom_${field.id}`;
+                input.dataset.fieldName = field.field_name;
+                formGroup.appendChild(input);
+            }
+
+            row.appendChild(formGroup);
+        });
+
+        container.appendChild(row);
+    }
+}
+
+function updateTimerDisplay() {
+    const now = Date.now();
+    const elapsed = isPaused
+        ? pausedTime - startTime - totalPausedDuration
+        : now - startTime - totalPausedDuration;
+
+    const seconds = Math.floor(elapsed / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    const display = `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+    document.getElementById('timerDisplay').textContent = display;
+}
+
+function startTimer() {
+    encounterNumber++;
+    startTime = Date.now();
+    totalPausedDuration = 0;
+    isPaused = false;
+
+    timerInterval = setInterval(updateTimerDisplay, 100);
+
+    document.getElementById('encounterLabel').textContent = `Encounter #${encounterNumber} - Active`;
+    document.getElementById('encounterInfo').innerHTML = `
+        <span class="status-indicator status-active"></span>
+        <span id="encounterLabel">Encounter #${encounterNumber} - Active</span>
+    `;
+
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('pauseBtn').style.display = 'inline-block';
+    document.getElementById('stopBtn').style.display = 'inline-block';
+    document.getElementById('visitForm').style.display = 'none';
+}
+
+function pauseTimer() {
+    if (!isPaused) {
+        isPaused = true;
+        pausedTime = Date.now();
+
+        document.getElementById('encounterInfo').innerHTML = `
+            <span class="status-indicator status-paused"></span>
+            <span id="encounterLabel">Encounter #${encounterNumber} - Paused</span>
+        `;
+
+        document.getElementById('pauseBtn').style.display = 'none';
+        document.getElementById('resumeBtn').style.display = 'inline-block';
+    }
+}
+
+function resumeTimer() {
+    if (isPaused) {
+        totalPausedDuration += Date.now() - pausedTime;
+        isPaused = false;
+
+        document.getElementById('encounterInfo').innerHTML = `
+            <span class="status-indicator status-active"></span>
+            <span id="encounterLabel">Encounter #${encounterNumber} - Active</span>
+        `;
+
+        document.getElementById('resumeBtn').style.display = 'none';
+        document.getElementById('pauseBtn').style.display = 'inline-block';
+    }
+}
+
+function stopTimer() {
+    clearInterval(timerInterval);
+
+    const endTime = isPaused ? pausedTime : Date.now();
+    const activeDuration = Math.floor((endTime - startTime - totalPausedDuration) / 1000);
+
+    document.getElementById('encounterInfo').innerHTML = `
+        <span class="status-indicator status-stopped"></span>
+        <span id="encounterLabel">Encounter #${encounterNumber} - Completed</span>
+    `;
+
+    document.getElementById('pauseBtn').style.display = 'none';
+    document.getElementById('resumeBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'none';
+    document.getElementById('visitForm').style.display = 'block';
+
+    // Store the duration for when we save
+    window.currentVisitData = {
+        startTime: new Date(startTime).toISOString(),
+        endTime: new Date(endTime).toISOString(),
+        activeDuration: activeDuration
+    };
+}
+
+async function saveVisit() {
+    const visitType = document.getElementById('visitType').value;
+    const billingCode = document.getElementById('billingCode').value;
+    const comments = document.getElementById('comments').value;
+
+    // Collect custom fields
+    const customFields = {};
+    document.querySelectorAll('[id^="custom_"]').forEach(field => {
+        if (field.value) {
+            customFields[field.dataset.fieldName] = field.value;
+        }
+    });
+
+    const visitData = {
+        date: new Date().toISOString().split('T')[0],
+        start_time: window.currentVisitData.startTime,
+        end_time: window.currentVisitData.endTime,
+        active_duration: window.currentVisitData.activeDuration,
+        visit_type: visitType,
+        billing_code: billingCode,
+        comments: comments,
+        custom_fields: customFields
+    };
+
+    const response = await fetch('/api/visit', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(visitData)
+    });
+
+    if (response.ok) {
+        // Reset form
+        document.getElementById('visitType').value = '';
+        document.getElementById('billingCode').value = '';
+        document.getElementById('comments').value = '';
+        document.querySelectorAll('[id^="custom_"]').forEach(field => {
+            field.value = '';
+        });
+
+        // Reset timer display
+        document.getElementById('timerDisplay').textContent = '00:00';
+
+        // Restart timer automatically
+        startTimer();
+    } else {
+        alert('Error saving visit. Please try again.');
+    }
+}
+
+// Initialize
+loadEncounterNumber();
+loadCustomFields();
+</script>
+{% endblock %}

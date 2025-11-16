@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Clinic Visit Tracker{% endblock %}
+{% block nav_settings %}active{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Settings</h1>
+
+<div class="settings-section">
+    <h2>Custom Fields</h2>
+    <p class="text-muted mb-3">Add custom fields to track additional data with each visit</p>
+
+    <!-- Existing Custom Fields -->
+    <div id="customFieldsList">
+        {% if custom_fields %}
+            {% for field in custom_fields %}
+            <div class="custom-field-item" id="field-{{ field.id }}">
+                <div class="custom-field-info">
+                    <div class="custom-field-name">{{ field.field_name }}</div>
+                    <div class="custom-field-type">
+                        Type: {{ field.field_type }}
+                        {% if field.options %}
+                        | Options: {{ field.options | join(', ') }}
+                        {% endif %}
+                    </div>
+                </div>
+                <button class="btn btn-danger" onclick="deleteField({{ field.id }})">Delete</button>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted" style="text-align: center; padding: 2rem;">No custom fields defined yet</p>
+        {% endif %}
+    </div>
+
+    <!-- Add New Custom Field Form -->
+    <div class="visit-form mt-4">
+        <h3 class="mb-3">Add New Custom Field</h3>
+
+        <div class="form-group mb-3">
+            <label for="fieldName">Field Name</label>
+            <input type="text" id="fieldName" placeholder="e.g., Patient Complexity, Interpreter Used">
+        </div>
+
+        <div class="form-group mb-3">
+            <label for="fieldType">Field Type</label>
+            <select id="fieldType" onchange="toggleOptionsField()">
+                <option value="">Select type...</option>
+                <option value="dropdown">Dropdown (select from options)</option>
+                <option value="number">Number Input</option>
+            </select>
+        </div>
+
+        <div class="form-group mb-3" id="optionsGroup" style="display: none;">
+            <label for="fieldOptions">Dropdown Options (comma-separated)</label>
+            <input type="text" id="fieldOptions" placeholder="e.g., Low, Medium, High">
+            <small class="text-muted">Separate options with commas</small>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="btn btn-success" onclick="addCustomField()">Add Custom Field</button>
+        </div>
+    </div>
+</div>
+
+<!-- About Section -->
+<div class="settings-section">
+    <h2>About</h2>
+    <p class="text-muted">Clinic Visit Tracker - A tool for tracking pediatric clinic workflow and improving efficiency</p>
+    <p class="text-muted">Version 1.0</p>
+</div>
+
+<script>
+function toggleOptionsField() {
+    const fieldType = document.getElementById('fieldType').value;
+    const optionsGroup = document.getElementById('optionsGroup');
+
+    if (fieldType === 'dropdown') {
+        optionsGroup.style.display = 'block';
+    } else {
+        optionsGroup.style.display = 'none';
+    }
+}
+
+async function addCustomField() {
+    const fieldName = document.getElementById('fieldName').value.trim();
+    const fieldType = document.getElementById('fieldType').value;
+    const fieldOptions = document.getElementById('fieldOptions').value;
+
+    if (!fieldName) {
+        alert('Please enter a field name');
+        return;
+    }
+
+    if (!fieldType) {
+        alert('Please select a field type');
+        return;
+    }
+
+    if (fieldType === 'dropdown' && !fieldOptions) {
+        alert('Please enter dropdown options');
+        return;
+    }
+
+    const data = {
+        field_name: fieldName,
+        field_type: fieldType
+    };
+
+    if (fieldType === 'dropdown') {
+        data.options = fieldOptions.split(',').map(opt => opt.trim()).filter(opt => opt);
+    }
+
+    const response = await fetch('/api/custom-field', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+
+    if (response.ok) {
+        location.reload();
+    } else {
+        const error = await response.json();
+        alert('Error adding custom field: ' + (error.message || 'Unknown error'));
+    }
+}
+
+async function deleteField(fieldId) {
+    if (!confirm('Are you sure you want to delete this custom field? This cannot be undone.')) {
+        return;
+    }
+
+    const response = await fetch(`/api/custom-field/${fieldId}`, {
+        method: 'DELETE'
+    });
+
+    if (response.ok) {
+        document.getElementById(`field-${fieldId}`).remove();
+
+        // Check if there are any fields left
+        const fieldsList = document.getElementById('customFieldsList');
+        if (fieldsList.children.length === 0) {
+            fieldsList.innerHTML = '<p class="text-muted" style="text-align: center; padding: 2rem;">No custom fields defined yet</p>';
+        }
+    } else {
+        alert('Error deleting custom field. Please try again.');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Summary - Clinic Visit Tracker{% endblock %}
+{% block nav_daily %}active{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Daily Summary</h1>
+    <div class="date-selector">
+        <input type="date" id="dateSelector" value="{{ date }}" onchange="changeDate()"
+               style="background-color: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 8px;">
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Visits</div>
+        <div class="stat-value">{{ stats.total_visits }}</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Average Duration</div>
+        <div class="stat-value">{{ (stats.avg_duration / 60) | round(1) }} min</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total Time</div>
+        <div class="stat-value">{{ (stats.total_duration / 60) | round(1) }} min</div>
+    </div>
+</div>
+
+<!-- Visit Type Breakdown -->
+{% if stats.visit_types %}
+<div class="stat-card">
+    <div class="stat-label">Visit Types</div>
+    <div class="stat-breakdown">
+        {% for vtype, count in stats.visit_types.items() %}
+        <div class="stat-breakdown-item">
+            <span>{{ vtype }}</span>
+            <span><strong>{{ count }}</strong> visits
+                {% if stats.avg_by_type and vtype in stats.avg_by_type %}
+                (avg: {{ (stats.avg_by_type[vtype] / 60) | round(1) }} min)
+                {% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Billing Codes Breakdown -->
+{% if stats.billing_codes %}
+<div class="stat-card">
+    <div class="stat-label">Billing Codes</div>
+    <div class="stat-breakdown">
+        {% for code, count in stats.billing_codes.items() %}
+        <div class="stat-breakdown-item">
+            <span>{{ code }}</span>
+            <span><strong>{{ count }}</strong></span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Custom Field Statistics -->
+{% if stats.custom_field_stats %}
+{% for field_name, field_values in stats.custom_field_stats.items() %}
+<div class="stat-card">
+    <div class="stat-label">{{ field_name }}</div>
+    <div class="stat-breakdown">
+        {% for value, count in field_values.items() %}
+        <div class="stat-breakdown-item">
+            <span>{{ value }}</span>
+            <span><strong>{{ count }}</strong></span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Visits Table -->
+{% if visits %}
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Encounter</th>
+                <th>Start Time</th>
+                <th>Duration</th>
+                <th>Visit Type</th>
+                <th>Billing Code</th>
+                <th>Comments</th>
+                {% for field in custom_fields %}
+                <th>{{ field.field_name }}</th>
+                {% endfor %}
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for visit in visits %}
+            <tr id="visit-{{ visit.id }}">
+                <td>#{{ loop.revindex }}</td>
+                <td>{{ visit.start_time.split('T')[1][:5] if 'T' in visit.start_time else visit.start_time }}</td>
+                <td>{{ format_duration(visit.active_duration) }}</td>
+                <td>{{ visit.visit_type or '-' }}</td>
+                <td>{{ visit.billing_code or '-' }}</td>
+                <td>{{ visit.comments or '-' }}</td>
+                {% for field in custom_fields %}
+                <td>{{ visit.custom_fields.get(field.field_name, '-') }}</td>
+                {% endfor %}
+                <td>
+                    <button class="btn btn-danger" onclick="deleteVisit({{ visit.id }})"
+                            style="padding: 0.5rem 1rem; font-size: 0.9rem;">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center" style="padding: 3rem;">
+    <p class="text-muted" style="font-size: 1.2rem;">No visits recorded for this date</p>
+</div>
+{% endif %}
+
+<script>
+function changeDate() {
+    const date = document.getElementById('dateSelector').value;
+    window.location.href = `/daily-summary?date=${date}`;
+}
+
+async function deleteVisit(visitId) {
+    if (!confirm('Are you sure you want to delete this visit?')) {
+        return;
+    }
+
+    const response = await fetch(`/api/visit/${visitId}`, {
+        method: 'DELETE'
+    });
+
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Error deleting visit. Please try again.');
+    }
+}
+</script>
+{% endblock %}

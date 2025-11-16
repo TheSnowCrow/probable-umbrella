@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Clinic Visit Tracker{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Dashboard</h1>
+    <div class="date-selector">
+        <div class="period-buttons">
+            <button class="period-btn active" data-period="today" onclick="changePeriod('today')">Today</button>
+            <button class="period-btn" data-period="week" onclick="changePeriod('week')">This Week</button>
+            <button class="period-btn" data-period="month" onclick="changePeriod('month')">This Month</button>
+            <button class="period-btn" data-period="last30" onclick="changePeriod('last30')">Last 30 Days</button>
+            <button class="period-btn" data-period="custom" onclick="showCustomRange()">Custom</button>
+        </div>
+    </div>
+</div>
+
+<div id="customRangeSelector" style="display: none; margin-bottom: 2rem;">
+    <div style="background-color: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color);">
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <input type="date" id="startDate" style="background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 8px;">
+            <span>to</span>
+            <input type="date" id="endDate" style="background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 8px;">
+            <button class="btn btn-primary" onclick="applyCustomRange()">Apply</button>
+        </div>
+    </div>
+</div>
+
+<div id="dateRangeDisplay" class="text-muted mb-3" style="text-align: center; font-size: 1.1rem;"></div>
+
+<!-- Summary Statistics -->
+<div class="stats-grid" id="statsGrid">
+    <div class="stat-card">
+        <div class="stat-label">Total Visits</div>
+        <div class="stat-value" id="totalVisits">-</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Average Duration</div>
+        <div class="stat-value" id="avgDuration">-</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Total Time</div>
+        <div class="stat-value" id="totalDuration">-</div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="chart-container">
+    <h3 class="chart-title">Visit Types Distribution</h3>
+    <canvas id="visitTypeChart" style="max-height: 300px;"></canvas>
+</div>
+
+<div class="chart-container">
+    <h3 class="chart-title">Billing Codes Distribution</h3>
+    <canvas id="billingCodeChart" style="max-height: 300px;"></canvas>
+</div>
+
+<div class="chart-container">
+    <h3 class="chart-title">Visits Over Time</h3>
+    <canvas id="visitsOverTimeChart" style="max-height: 300px;"></canvas>
+</div>
+
+<!-- Export Button -->
+<div style="text-align: center; margin: 3rem 0;">
+    <button class="btn btn-primary btn-large" onclick="exportData()">Export to Excel</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let currentPeriod = 'today';
+let currentStartDate = null;
+let currentEndDate = null;
+let charts = {};
+
+const chartColors = {
+    blue: 'rgba(10, 132, 255, 0.8)',
+    green: 'rgba(48, 209, 88, 0.8)',
+    red: 'rgba(255, 69, 58, 0.8)',
+    yellow: 'rgba(255, 214, 10, 0.8)',
+    purple: 'rgba(191, 90, 242, 0.8)',
+    orange: 'rgba(255, 159, 10, 0.8)',
+    pink: 'rgba(255, 55, 95, 0.8)',
+    teal: 'rgba(100, 210, 255, 0.8)'
+};
+
+const colorArray = Object.values(chartColors);
+
+function changePeriod(period) {
+    currentPeriod = period;
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-period="${period}"]`).classList.add('active');
+
+    if (period !== 'custom') {
+        document.getElementById('customRangeSelector').style.display = 'none';
+        loadDashboardData();
+    }
+}
+
+function showCustomRange() {
+    currentPeriod = 'custom';
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector('[data-period="custom"]').classList.add('active');
+    document.getElementById('customRangeSelector').style.display = 'block';
+
+    // Set default dates
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    document.getElementById('startDate').value = lastWeek.toISOString().split('T')[0];
+    document.getElementById('endDate').value = today.toISOString().split('T')[0];
+}
+
+function applyCustomRange() {
+    currentStartDate = document.getElementById('startDate').value;
+    currentEndDate = document.getElementById('endDate').value;
+    loadDashboardData();
+}
+
+async function loadDashboardData() {
+    let url = `/api/dashboard-data?period=${currentPeriod}`;
+
+    if (currentPeriod === 'custom' && currentStartDate && currentEndDate) {
+        url += `&start_date=${currentStartDate}&end_date=${currentEndDate}`;
+    }
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    updateStatistics(data.stats);
+    updateCharts(data.stats, data.daily_stats);
+
+    // Update date range display
+    const startDate = new Date(data.start_date).toLocaleDateString();
+    const endDate = new Date(data.end_date).toLocaleDateString();
+    document.getElementById('dateRangeDisplay').textContent = `${startDate} - ${endDate}`;
+}
+
+function updateStatistics(stats) {
+    document.getElementById('totalVisits').textContent = stats.total_visits;
+    document.getElementById('avgDuration').textContent = `${(stats.avg_duration / 60).toFixed(1)} min`;
+    document.getElementById('totalDuration').textContent = `${(stats.total_duration / 60).toFixed(1)} min`;
+}
+
+function updateCharts(stats, dailyStats) {
+    // Destroy existing charts
+    Object.values(charts).forEach(chart => chart.destroy());
+    charts = {};
+
+    // Visit Types Chart
+    if (stats.visit_types && Object.keys(stats.visit_types).length > 0) {
+        const ctx1 = document.getElementById('visitTypeChart');
+        charts.visitType = new Chart(ctx1, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(stats.visit_types),
+                datasets: [{
+                    data: Object.values(stats.visit_types),
+                    backgroundColor: colorArray.slice(0, Object.keys(stats.visit_types).length)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#ffffff',
+                            font: { size: 14 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Billing Codes Chart
+    if (stats.billing_codes && Object.keys(stats.billing_codes).length > 0) {
+        const ctx2 = document.getElementById('billingCodeChart');
+        charts.billingCode = new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(stats.billing_codes),
+                datasets: [{
+                    label: 'Count',
+                    data: Object.values(stats.billing_codes),
+                    backgroundColor: chartColors.blue
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#a0a0a0',
+                            stepSize: 1
+                        },
+                        grid: {
+                            color: 'rgba(64, 64, 64, 0.3)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#a0a0a0'
+                        },
+                        grid: {
+                            color: 'rgba(64, 64, 64, 0.3)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Visits Over Time Chart
+    if (dailyStats && Object.keys(dailyStats).length > 0) {
+        const dates = Object.keys(dailyStats).sort();
+        const counts = dates.map(date => dailyStats[date].total_visits);
+        const avgDurations = dates.map(date => dailyStats[date].avg_duration / 60);
+
+        const ctx3 = document.getElementById('visitsOverTimeChart');
+        charts.visitsOverTime = new Chart(ctx3, {
+            type: 'line',
+            data: {
+                labels: dates.map(d => new Date(d).toLocaleDateString()),
+                datasets: [
+                    {
+                        label: 'Number of Visits',
+                        data: counts,
+                        borderColor: chartColors.blue,
+                        backgroundColor: 'rgba(10, 132, 255, 0.1)',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Avg Duration (min)',
+                        data: avgDurations,
+                        borderColor: chartColors.green,
+                        backgroundColor: 'rgba(48, 209, 88, 0.1)',
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#ffffff',
+                            font: { size: 14 }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#a0a0a0',
+                            stepSize: 1
+                        },
+                        grid: {
+                            color: 'rgba(64, 64, 64, 0.3)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#a0a0a0'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#a0a0a0'
+                        },
+                        grid: {
+                            color: 'rgba(64, 64, 64, 0.3)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function exportData() {
+    let url = `/api/export?`;
+
+    if (currentPeriod === 'custom' && currentStartDate && currentEndDate) {
+        url += `start_date=${currentStartDate}&end_date=${currentEndDate}`;
+    } else {
+        // Use the current period's date range
+        const today = new Date();
+        let startDate, endDate;
+
+        if (currentPeriod === 'today') {
+            startDate = endDate = today.toISOString().split('T')[0];
+        } else if (currentPeriod === 'week') {
+            startDate = new Date(today.getTime() - today.getDay() * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
+        } else if (currentPeriod === 'month') {
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
+        } else if (currentPeriod === 'last30') {
+            startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
+        }
+
+        url += `start_date=${startDate}&end_date=${endDate}`;
+    }
+
+    window.location.href = url;
+}
+
+// Initialize
+loadDashboardData();
+</script>
+{% endblock %}
