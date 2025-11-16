@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Import Data - Clinic Visit Tracker{% endblock %}
+{% block nav_import %}active{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Import Data</h1>
+
+<div class="settings-section">
+    <h2>Import Visits from CSV/Excel</h2>
+    <p class="text-muted mb-3">Upload a CSV or Excel file with visit data to import multiple visits at once</p>
+
+    <div class="visit-form">
+        <h3 class="mb-3">Upload File</h3>
+
+        <div class="form-group">
+            <label for="fileInput">Select File (CSV or Excel)</label>
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls"
+                   style="background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.75rem 1rem; border-radius: 8px; width: 100%;">
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <button class="btn btn-primary btn-large" onclick="importFile()">Import Data</button>
+        </div>
+
+        <div id="message" style="margin-top: 1rem;"></div>
+    </div>
+</div>
+
+<div class="settings-section">
+    <h2>Expected File Format</h2>
+    <p class="text-muted mb-3">Your file should have the following columns (column names must match exactly):</p>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Column Name</th>
+                    <th>Required</th>
+                    <th>Format/Example</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>date</strong></td>
+                    <td>Yes</td>
+                    <td>2024-01-15</td>
+                    <td>Visit date (YYYY-MM-DD)</td>
+                </tr>
+                <tr>
+                    <td><strong>start_time</strong></td>
+                    <td>Yes</td>
+                    <td>2024-01-15T14:30:00</td>
+                    <td>Start timestamp (ISO format)</td>
+                </tr>
+                <tr>
+                    <td><strong>end_time</strong></td>
+                    <td>No</td>
+                    <td>2024-01-15T14:45:00</td>
+                    <td>End timestamp (ISO format)</td>
+                </tr>
+                <tr>
+                    <td><strong>active_duration</strong></td>
+                    <td>Yes</td>
+                    <td>900</td>
+                    <td>Duration in seconds (15 min = 900)</td>
+                </tr>
+                <tr>
+                    <td><strong>visit_type</strong></td>
+                    <td>No</td>
+                    <td>Sick or Well</td>
+                    <td>Type of visit</td>
+                </tr>
+                <tr>
+                    <td><strong>billing_code</strong></td>
+                    <td>No</td>
+                    <td>99213 or ["99213","25"]</td>
+                    <td>Single code or JSON array for multiple</td>
+                </tr>
+                <tr>
+                    <td><strong>comments</strong></td>
+                    <td>No</td>
+                    <td>Patient was... </td>
+                    <td>Free text notes</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-4">
+        <h3>Download Template</h3>
+        <button class="btn btn-secondary" onclick="downloadTemplate()">Download CSV Template</button>
+    </div>
+</div>
+
+<div id="previewSection" style="display: none;" class="settings-section">
+    <h2>Preview (First 5 Rows)</h2>
+    <div id="previewContainer"></div>
+</div>
+
+<script>
+async function importFile() {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showMessage('Please select a file to import', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    showMessage('Importing...', 'info');
+
+    try {
+        const response = await fetch('/api/import', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showMessage(`Successfully imported ${result.imported} visits!`, 'success');
+            fileInput.value = '';
+
+            if (result.errors && result.errors.length > 0) {
+                showMessage(`Import completed with ${result.errors.length} errors. Check console for details.`, 'warning');
+                console.error('Import errors:', result.errors);
+            }
+        } else {
+            showMessage(`Error: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        showMessage(`Error: ${error.message}`, 'error');
+    }
+}
+
+function downloadTemplate() {
+    const csv = `date,start_time,end_time,active_duration,visit_type,billing_code,comments
+2024-01-15,2024-01-15T09:00:00,2024-01-15T09:15:00,900,Sick,99213,"Sample visit"
+2024-01-15,2024-01-15T10:00:00,2024-01-15T10:20:00,1200,Well,"[""99393"",""25""]","Well visit with sick component"`;
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'clinic_visits_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function showMessage(text, type) {
+    const messageDiv = document.getElementById('message');
+    let className = 'alert ';
+
+    if (type === 'success') {
+        className += 'alert-success';
+    } else if (type === 'error') {
+        className += 'alert-error';
+    } else {
+        className += 'alert alert-info';
+    }
+
+    messageDiv.className = className;
+    messageDiv.textContent = text;
+    messageDiv.style.display = 'block';
+
+    if (type === 'success') {
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 5000);
+    }
+}
+</script>
+
+<style>
+.alert-info {
+    background-color: rgba(10, 132, 255, 0.1);
+    border: 1px solid var(--accent-blue);
+    color: var(--accent-blue);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.alert-warning {
+    background-color: rgba(255, 214, 10, 0.1);
+    border: 1px solid var(--accent-yellow);
+    color: var(--accent-yellow);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+</style>
+{% endblock %}

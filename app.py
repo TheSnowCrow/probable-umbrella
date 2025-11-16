@@ -109,6 +109,16 @@ def index():
     custom_fields = db.get_custom_fields()
     return render_template('timer.html', custom_fields=custom_fields)
 
+@app.route('/manual-entry')
+def manual_entry():
+    """Manual data entry page"""
+    return render_template('manual_entry.html')
+
+@app.route('/import')
+def import_data():
+    """Data import page"""
+    return render_template('import.html')
+
 @app.route('/api/custom-fields')
 def get_custom_fields():
     """Get all custom field configurations"""
@@ -322,6 +332,70 @@ def export_data():
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      as_attachment=True,
                      download_name=filename)
+
+@app.route('/api/import', methods=['POST'])
+def import_visits():
+    """Import visits from CSV or Excel file"""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    try:
+        # Read file based on extension
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(file)
+        elif file.filename.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(file)
+        else:
+            return jsonify({'error': 'Unsupported file type. Please upload CSV or Excel file'}), 400
+
+        imported_count = 0
+        errors = []
+
+        for index, row in df.iterrows():
+            try:
+                # Prepare visit data
+                visit_data = {
+                    'date': str(row.get('date', '')),
+                    'start_time': str(row.get('start_time', '')),
+                    'end_time': str(row.get('end_time', '')),
+                    'active_duration': int(row.get('active_duration', 0)),
+                    'visit_type': str(row.get('visit_type', '')) if pd.notna(row.get('visit_type')) else '',
+                    'billing_code': str(row.get('billing_code', '')) if pd.notna(row.get('billing_code')) else '',
+                    'comments': str(row.get('comments', '')) if pd.notna(row.get('comments')) else '',
+                    'custom_fields': {}
+                }
+
+                # Validate required fields
+                if not visit_data['date'] or not visit_data['start_time']:
+                    errors.append(f"Row {index + 1}: Missing required fields (date or start_time)")
+                    continue
+
+                # Handle custom fields if present
+                for col in df.columns:
+                    if col not in ['date', 'start_time', 'end_time', 'active_duration',
+                                   'visit_type', 'billing_code', 'comments', 'day_of_week']:
+                        if pd.notna(row[col]):
+                            visit_data['custom_fields'][col] = str(row[col])
+
+                # Import visit
+                db.create_visit(visit_data)
+                imported_count += 1
+
+            except Exception as e:
+                errors.append(f"Row {index + 1}: {str(e)}")
+
+        return jsonify({
+            'success': True,
+            'imported': imported_count,
+            'errors': errors
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.template_filter('format_duration')
 def format_duration_filter(seconds):

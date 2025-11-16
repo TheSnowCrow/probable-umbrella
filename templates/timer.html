@@ -34,8 +34,8 @@
         </div>
 
         <div class="form-group">
-            <label>Billing Codes (select all that apply)</label>
-            <div id="billingCodesContainer" style="max-height: 400px; overflow-y: auto; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+            <label>Billing Codes (click to select)</label>
+            <div id="billingCodesContainer" style="background-color: var(--bg-secondary); border-radius: 12px; padding: 1.5rem;">
                 <!-- Billing codes will be loaded here -->
             </div>
         </div>
@@ -69,7 +69,7 @@ async function loadEncounterNumber() {
     encounterNumber = data.visits.length;
 }
 
-// Load billing codes
+// Load billing codes with POS-style buttons
 async function loadBillingCodes() {
     const response = await fetch('/api/wrvu-lookup');
     const wrvuLookup = await response.json();
@@ -94,46 +94,42 @@ async function loadBillingCodes() {
 
     categories.forEach(category => {
         const categoryDiv = document.createElement('div');
-        categoryDiv.style.marginBottom = '1rem';
+        categoryDiv.className = 'billing-category';
 
-        const categoryTitle = document.createElement('h4');
+        const categoryTitle = document.createElement('div');
+        categoryTitle.className = 'billing-category-title';
         categoryTitle.textContent = category.title;
-        categoryTitle.style.fontSize = '0.9rem';
-        categoryTitle.style.color = 'var(--text-secondary)';
-        categoryTitle.style.marginBottom = '0.5rem';
         categoryDiv.appendChild(categoryTitle);
+
+        const gridDiv = document.createElement('div');
+        gridDiv.className = 'billing-buttons-grid';
 
         category.codes.forEach(code => {
             if (wrvuLookup[code]) {
                 const codeInfo = wrvuLookup[code];
-                const label = document.createElement('label');
-                label.style.display = 'flex';
-                label.style.alignItems = 'center';
-                label.style.padding = '0.5rem';
-                label.style.cursor = 'pointer';
-                label.style.borderRadius = '4px';
-                label.style.marginBottom = '0.25rem';
+                const button = document.createElement('div');
+                button.className = 'billing-btn';
+                button.dataset.code = code;
 
-                label.onmouseover = () => label.style.backgroundColor = 'var(--bg-secondary)';
-                label.onmouseout = () => label.style.backgroundColor = 'transparent';
+                button.innerHTML = `
+                    <div class="billing-btn-code">${code}</div>
+                    <div class="billing-btn-desc">${codeInfo.description}</div>
+                    <div class="billing-btn-wrvu">${codeInfo.wrvu} wRVU</div>
+                `;
 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.name = 'billingCode';
-                checkbox.value = code;
-                checkbox.style.marginRight = '0.75rem';
-
-                const text = document.createElement('span');
-                text.innerHTML = `<strong>${code}</strong> - ${codeInfo.description} <span style="color: var(--text-secondary);">(${codeInfo.wrvu} wRVU)</span>`;
-
-                label.appendChild(checkbox);
-                label.appendChild(text);
-                categoryDiv.appendChild(label);
+                button.onclick = () => toggleBillingCode(button, code);
+                gridDiv.appendChild(button);
             }
         });
 
+        categoryDiv.appendChild(gridDiv);
         container.appendChild(categoryDiv);
     });
+}
+
+// Toggle billing code selection
+function toggleBillingCode(button, code) {
+    button.classList.toggle('selected');
 }
 
 // Load custom fields
@@ -282,10 +278,10 @@ function stopTimer() {
 async function saveVisit() {
     const visitType = document.getElementById('visitType').value;
 
-    // Collect checked billing codes
+    // Collect selected billing codes from buttons
     const billingCodes = [];
-    document.querySelectorAll('input[name="billingCode"]:checked').forEach(checkbox => {
-        billingCodes.push(checkbox.value);
+    document.querySelectorAll('.billing-btn.selected').forEach(button => {
+        billingCodes.push(button.dataset.code);
     });
 
     // Store as JSON array if multiple, single string if one
@@ -323,8 +319,8 @@ async function saveVisit() {
     if (response.ok) {
         // Reset form
         document.getElementById('visitType').value = '';
-        document.querySelectorAll('input[name="billingCode"]:checked').forEach(checkbox => {
-            checkbox.checked = false;
+        document.querySelectorAll('.billing-btn.selected').forEach(button => {
+            button.classList.remove('selected');
         });
         document.getElementById('comments').value = '';
         document.querySelectorAll('[id^="custom_"]').forEach(field => {

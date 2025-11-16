@@ -82,6 +82,9 @@
     <canvas id="visitsOverTimeChart" style="max-height: 300px;"></canvas>
 </div>
 
+<!-- Custom Field Charts (dynamically generated) -->
+<div id="customFieldChartsContainer"></div>
+
 <!-- Export Button -->
 <div style="text-align: center; margin: 3rem 0;">
     <button class="btn btn-primary btn-large" onclick="exportData()">Export to Excel</button>
@@ -363,6 +366,56 @@ function updateCharts(stats, dailyStats) {
                 }
             }
         });
+    }
+
+    // Custom Field Charts
+    const customFieldChartsContainer = document.getElementById('customFieldChartsContainer');
+    customFieldChartsContainer.innerHTML = '';
+
+    if (stats.custom_field_stats && Object.keys(stats.custom_field_stats).length > 0) {
+        for (const [fieldName, fieldValues] of Object.entries(stats.custom_field_stats)) {
+            // Create pie chart for each custom field
+            const chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container';
+
+            const chartTitle = document.createElement('h3');
+            chartTitle.className = 'chart-title';
+            chartTitle.textContent = `${fieldName} Distribution`;
+            chartContainer.appendChild(chartTitle);
+
+            const canvas = document.createElement('canvas');
+            canvas.style.maxHeight = '300px';
+            const chartId = `customField_${fieldName.replace(/\s+/g, '_')}`;
+            canvas.id = chartId;
+            chartContainer.appendChild(canvas);
+
+            customFieldChartsContainer.appendChild(chartContainer);
+
+            // Create the chart
+            charts[chartId] = new Chart(canvas, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(fieldValues),
+                    datasets: [{
+                        data: Object.values(fieldValues),
+                        backgroundColor: colorArray.slice(0, Object.keys(fieldValues).length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#ffffff',
+                                font: { size: 14 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 }
 

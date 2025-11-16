@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Manual Entry - Clinic Visit Tracker{% endblock %}
+{% block nav_manual %}active{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Manual Data Entry</h1>
+
+<div class="visit-form">
+    <h2 class="mb-3">Add Visit Manually</h2>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="visitDate">Date</label>
+            <input type="date" id="visitDate" required>
+        </div>
+
+        <div class="form-group">
+            <label for="startTime">Start Time</label>
+            <input type="time" id="startTime" required>
+        </div>
+
+        <div class="form-group">
+            <label for="endTime">End Time</label>
+            <input type="time" id="endTime">
+        </div>
+
+        <div class="form-group">
+            <label for="duration">Duration (minutes)</label>
+            <input type="number" id="duration" min="0" step="1" placeholder="Auto-calculated or manual">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="visitType">Visit Type</label>
+            <select id="visitType">
+                <option value="">Select...</option>
+                <option value="Sick">Sick</option>
+                <option value="Well">Well</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Billing Codes (click to select)</label>
+        <div id="billingCodesContainer" style="background-color: var(--bg-secondary); border-radius: 12px; padding: 1.5rem;">
+            <!-- Billing codes will be loaded here -->
+        </div>
+    </div>
+
+    <div id="customFieldsContainer"></div>
+
+    <div class="form-group">
+        <label for="comments">Comments</label>
+        <textarea id="comments" placeholder="Notes about this visit..."></textarea>
+    </div>
+
+    <div style="text-align: center; margin-top: 2rem;">
+        <button class="btn btn-success btn-large" onclick="saveManualVisit()">Save Visit</button>
+        <button class="btn btn-secondary btn-large" onclick="resetForm()" style="margin-left: 1rem;">Clear Form</button>
+    </div>
+</div>
+
+<div id="message" style="margin-top: 1rem;"></div>
+
+<script>
+// Load billing codes with POS-style buttons
+async function loadBillingCodes() {
+    const response = await fetch('/api/wrvu-lookup');
+    const wrvuLookup = await response.json();
+
+    const container = document.getElementById('billingCodesContainer');
+    container.innerHTML = '';
+
+    const established = ['99212', '99213', '99214', '99215'];
+    const newPatient = ['99202', '99203', '99204', '99205'];
+    const wellNew = ['99381', '99382', '99383', '99384', '99385'];
+    const wellEst = ['99391', '99392', '99393', '99394', '99395'];
+    const modifier = ['25'];
+
+    const categories = [
+        {title: 'Established Patient', codes: established},
+        {title: 'New Patient', codes: newPatient},
+        {title: 'Well Visit (New)', codes: wellNew},
+        {title: 'Well Visit (Established)', codes: wellEst},
+        {title: 'Modifier', codes: modifier}
+    ];
+
+    categories.forEach(category => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'billing-category';
+
+        const categoryTitle = document.createElement('div');
+        categoryTitle.className = 'billing-category-title';
+        categoryTitle.textContent = category.title;
+        categoryDiv.appendChild(categoryTitle);
+
+        const gridDiv = document.createElement('div');
+        gridDiv.className = 'billing-buttons-grid';
+
+        category.codes.forEach(code => {
+            if (wrvuLookup[code]) {
+                const codeInfo = wrvuLookup[code];
+                const button = document.createElement('div');
+                button.className = 'billing-btn';
+                button.dataset.code = code;
+
+                button.innerHTML = `
+                    <div class="billing-btn-code">${code}</div>
+                    <div class="billing-btn-desc">${codeInfo.description}</div>
+                    <div class="billing-btn-wrvu">${codeInfo.wrvu} wRVU</div>
+                `;
+
+                button.onclick = () => button.classList.toggle('selected');
+                gridDiv.appendChild(button);
+            }
+        });
+
+        categoryDiv.appendChild(gridDiv);
+        container.appendChild(categoryDiv);
+    });
+}
+
+// Load custom fields
+async function loadCustomFields() {
+    const response = await fetch('/api/custom-fields');
+    const fields = await response.json();
+
+    const container = document.getElementById('customFieldsContainer');
+    container.innerHTML = '';
+
+    if (fields.length > 0) {
+        const row = document.createElement('div');
+        row.className = 'form-row';
+
+        fields.forEach(field => {
+            const formGroup = document.createElement('div');
+            formGroup.className = 'form-group';
+
+            const label = document.createElement('label');
+            label.textContent = field.field_name;
+            formGroup.appendChild(label);
+
+            if (field.field_type === 'dropdown') {
+                const select = document.createElement('select');
+                select.id = `custom_${field.id}`;
+                select.dataset.fieldName = field.field_name;
+
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'Select...';
+                select.appendChild(defaultOption);
+
+                if (field.options) {
+                    field.options.forEach(option => {
+                        const opt = document.createElement('option');
+                        opt.value = option;
+                        opt.textContent = option;
+                        select.appendChild(opt);
+                    });
+                }
+
+                formGroup.appendChild(select);
+            } else if (field.field_type === 'number') {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `custom_${field.id}`;
+                input.dataset.fieldName = field.field_name;
+                formGroup.appendChild(input);
+            }
+
+            row.appendChild(formGroup);
+        });
+
+        container.appendChild(row);
+    }
+}
+
+// Auto-calculate duration
+document.addEventListener('DOMContentLoaded', () => {
+    const startTimeInput = document.getElementById('startTime');
+    const endTimeInput = document.getElementById('endTime');
+    const durationInput = document.getElementById('duration');
+
+    function calculateDuration() {
+        const startTime = startTimeInput.value;
+        const endTime = endTimeInput.value;
+
+        if (startTime && endTime) {
+            const start = new Date(`2000-01-01T${startTime}`);
+            const end = new Date(`2000-01-01T${endTime}`);
+            const diffMs = end - start;
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+
+            if (diffMins >= 0) {
+                durationInput.value = diffMins;
+            }
+        }
+    }
+
+    startTimeInput.addEventListener('change', calculateDuration);
+    endTimeInput.addEventListener('change', calculateDuration);
+
+    // Set today's date as default
+    document.getElementById('visitDate').valueAsDate = new Date();
+});
+
+async function saveManualVisit() {
+    const visitDate = document.getElementById('visitDate').value;
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
+    const duration = parseInt(document.getElementById('duration').value) || 0;
+    const visitType = document.getElementById('visitType').value;
+    const comments = document.getElementById('comments').value;
+
+    // Validation
+    if (!visitDate) {
+        showMessage('Please enter a date', 'error');
+        return;
+    }
+
+    if (!startTime) {
+        showMessage('Please enter a start time', 'error');
+        return;
+    }
+
+    // Collect selected billing codes
+    const billingCodes = [];
+    document.querySelectorAll('.billing-btn.selected').forEach(button => {
+        billingCodes.push(button.dataset.code);
+    });
+
+    const billingCode = billingCodes.length > 1 ? JSON.stringify(billingCodes) : (billingCodes[0] || '');
+
+    // Collect custom fields
+    const customFields = {};
+    document.querySelectorAll('[id^="custom_"]').forEach(field => {
+        if (field.value) {
+            customFields[field.dataset.fieldName] = field.value;
+        }
+    });
+
+    // Create ISO timestamps
+    const startDateTime = `${visitDate}T${startTime}:00`;
+    const endDateTime = endTime ? `${visitDate}T${endTime}:00` : startDateTime;
+
+    const visitData = {
+        date: visitDate,
+        start_time: startDateTime,
+        end_time: endDateTime,
+        active_duration: duration * 60, // Convert to seconds
+        visit_type: visitType,
+        billing_code: billingCode,
+        comments: comments,
+        custom_fields: customFields
+    };
+
+    const response = await fetch('/api/visit', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(visitData)
+    });
+
+    if (response.ok) {
+        showMessage('Visit saved successfully!', 'success');
+        resetForm();
+    } else {
+        showMessage('Error saving visit. Please try again.', 'error');
+    }
+}
+
+function resetForm() {
+    document.getElementById('visitDate').valueAsDate = new Date();
+    document.getElementById('startTime').value = '';
+    document.getElementById('endTime').value = '';
+    document.getElementById('duration').value = '';
+    document.getElementById('visitType').value = '';
+    document.getElementById('comments').value = '';
+
+    document.querySelectorAll('.billing-btn.selected').forEach(button => {
+        button.classList.remove('selected');
+    });
+
+    document.querySelectorAll('[id^="custom_"]').forEach(field => {
+        field.value = '';
+    });
+
+    document.getElementById('message').innerHTML = '';
+}
+
+function showMessage(text, type) {
+    const messageDiv = document.getElementById('message');
+    messageDiv.className = type === 'success' ? 'alert alert-success' : 'alert alert-error';
+    messageDiv.textContent = text;
+
+    setTimeout(() => {
+        messageDiv.innerHTML = '';
+    }, 3000);
+}
+
+// Initialize
+loadBillingCodes();
+loadCustomFields();
+</script>
+{% endblock %}
