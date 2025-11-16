@@ -105,14 +105,9 @@ def calculate_statistics(visits):
 # Routes
 @app.route('/')
 def index():
-    """Main timer interface"""
+    """Main encounters interface (timer + manual entry)"""
     custom_fields = db.get_custom_fields()
-    return render_template('timer.html', custom_fields=custom_fields)
-
-@app.route('/manual-entry')
-def manual_entry():
-    """Manual data entry page"""
-    return render_template('manual_entry.html')
+    return render_template('encounters.html', custom_fields=custom_fields)
 
 @app.route('/import')
 def import_data():
