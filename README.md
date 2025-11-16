@@ -6,6 +6,11 @@ A web-based application for pediatricians to track clinic visits, improve workfl
 
 - **Real-time Visit Timing**: Large stopwatch interface with pause/resume functionality
 - **Visit Documentation**: Track visit type (Sick/Well), billing codes, and custom notes
+- **wRVU Tracking**: Automatic calculation of work RVUs for all billing codes
+- **Multiple Billing Codes**: Select multiple codes per visit (e.g., well visit + sick visit + 25 modifier)
+- **Financial Analytics**: Track wRVU earnings with customizable conversion rate
+- **Privacy-First Money Display**: Dollar values hidden by default, toggle to show
+- **Day-of-Week Analysis**: Automatic tracking of visit patterns by day
 - **Custom Fields**: Define your own dropdown or number fields for additional tracking
 - **Daily Summary**: View all visits for the day with comprehensive statistics
 - **Dashboard**: Analyze trends over time with interactive charts
@@ -57,7 +62,13 @@ A web-based application for pediatricians to track clinic visits, improve workfl
    - Click "End Visit" when the patient encounter is complete
    - Fill in visit details:
      - Visit Type (Sick/Well)
-     - Billing Code (99212-99395)
+     - Billing Codes - Select one or more (organized by category):
+       - Established Patient (99212-99215)
+       - New Patient (99202-99205)
+       - Well Visit New (99381-99385)
+       - Well Visit Established (99391-99395)
+       - 25 Modifier (for combined well + sick visits)
+     - Each code shows its wRVU value for reference
      - Custom fields (if configured)
      - Comments/notes
    - Click "Save & Start Next Visit" to save and automatically start the next encounter
@@ -69,9 +80,21 @@ A web-based application for pediatricians to track clinic visits, improve workfl
   - Total visits
   - Average duration
   - Total time spent
+  - **Total wRVU** earned for the day
+  - **Average wRVU** per visit
+  - **Total Value** (toggle to show/hide dollar amount)
   - Visit type breakdown with averages
   - Billing code distribution
+  - Day of week tracking
   - Custom field statistics
+- Visit table shows:
+  - Encounter number
+  - Day of week
+  - Duration
+  - Billing codes
+  - **wRVU** for each visit
+  - All custom data
+- **Privacy Feature**: Click "Show $ Values" to reveal earnings (hidden by default)
 - Delete visits if needed
 - Change date to view previous days
 
@@ -92,6 +115,11 @@ A web-based application for pediatricians to track clinic visits, improve workfl
 - **Export**: Download data as Excel spreadsheet
 
 ### Settings
+
+**wRVU Conversion Rate**:
+- Set the dollar value per wRVU (default: $36.00)
+- Applies to new visits going forward
+- Used for calculating "Total Value" in summaries and dashboard
 
 **Custom Fields**:
 - Add dropdown fields (e.g., "Patient Complexity: Low, Medium, High")
