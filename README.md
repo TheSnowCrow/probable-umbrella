@@ -5,6 +5,9 @@ A web-based application for pediatricians to track clinic visits, improve workfl
 ## Features
 
 - **Real-time Visit Timing**: Large stopwatch interface with pause/resume functionality
+- **POS-Style Data Entry**: Large, tappable square buttons for fast billing code selection (like a cash register)
+- **Manual Data Entry**: Add visits without using the timer - perfect for retrospective entry
+- **Data Import**: Bulk import visits from CSV or Excel files
 - **Visit Documentation**: Track visit type (Sick/Well), billing codes, and custom notes
 - **wRVU Tracking**: Automatic calculation of work RVUs for all billing codes
 - **Multiple Billing Codes**: Select multiple codes per visit (e.g., well visit + sick visit + 25 modifier)
@@ -13,7 +16,7 @@ A web-based application for pediatricians to track clinic visits, improve workfl
 - **Day-of-Week Analysis**: Automatic tracking of visit patterns by day
 - **Custom Fields**: Define your own dropdown or number fields for additional tracking
 - **Daily Summary**: View all visits for the day with comprehensive statistics
-- **Dashboard**: Analyze trends over time with interactive charts
+- **Dashboard**: Analyze trends over time with interactive charts including custom field analytics
 - **Excel Export**: Export your data for external analysis
 - **Dark macOS Theme**: Professional, minimalistic interface designed for macOS
 
@@ -73,6 +76,40 @@ A web-based application for pediatricians to track clinic visits, improve workfl
      - Comments/notes
    - Click "Save & Start Next Visit" to save and automatically start the next encounter
 
+### Manual Data Entry
+
+For entering visits without using the timer (e.g., when you forgot to track or doing retrospective entry):
+
+1. Go to **Manual Entry** page
+2. Fill in the form:
+   - Date (required)
+   - Start Time (required)
+   - End Time (optional - auto-calculates duration)
+   - Duration in minutes (auto-filled or manual)
+   - Visit Type
+   - Billing Codes - Click the large square buttons to select
+   - Custom fields
+   - Comments
+3. Click **Save Visit** to add to your records
+4. Form resets for next entry
+
+### Import Data
+
+Bulk import visits from spreadsheets:
+
+1. Go to **Import Data** page
+2. Download the CSV template (optional but recommended)
+3. Prepare your file with columns:
+   - `date` (YYYY-MM-DD, required)
+   - `start_time` (ISO format, required)
+   - `end_time` (ISO format, optional)
+   - `active_duration` (seconds, required)
+   - `visit_type`, `billing_code`, `comments` (optional)
+   - Any custom field names
+4. Upload CSV or Excel file
+5. Review import results (shows # imported and any errors)
+6. Check Daily Summary or Dashboard to verify
+
 ### Daily Summary
 
 - View all visits recorded for a specific date
@@ -111,6 +148,10 @@ A web-based application for pediatricians to track clinic visits, improve workfl
   - Visit types distribution (pie chart)
   - Billing codes distribution (bar chart)
   - Visits and duration over time (line chart)
+  - **Custom field distributions** (pie chart for each custom field)
+  - All charts update based on selected time period
+
+- **wRVU Display**: Toggle to show/hide dollar values
 
 - **Export**: Download data as Excel spreadsheet
 
