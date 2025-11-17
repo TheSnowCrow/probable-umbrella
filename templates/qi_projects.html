@@ -1,0 +1,1032 @@
+{% extends "base.html" %}
+
+{% block title %}QI Project Tracker{% endblock %}
+{% block nav_qi %}active{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+{% endblock %}
+
+{% block content %}
+<div id="app">
+    <!-- Flash Message -->
+    <div id="flashMessage" style="display: none; background-color: var(--accent-green); color: white; padding: 1rem 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+        Message
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboardView" style="display: block;">
+        <div class="dashboard-header">
+            <h1>QI Project Tracker</h1>
+            <button class="btn btn-success" onclick="showCreateProject()">Create New Project</button>
+        </div>
+
+        <div class="alert alert-warning" style="margin-bottom: 2rem;">
+            <strong>Note:</strong> QI project data is stored in a local database. Regular backups are recommended.
+        </div>
+
+        <div id="projectsList" class="stats-grid">
+            <!-- Projects will be loaded here -->
+        </div>
+
+        <div id="noProjectsMessage" style="display: none; text-align: center; padding: 3rem; color: var(--text-secondary);">
+            <p style="font-size: 1.2rem;">No QI projects yet</p>
+            <p>Click "Create New Project" to get started</p>
+        </div>
+    </div>
+
+    <!-- Create/Edit Project View -->
+    <div id="createProjectView" style="display: none;">
+        <div class="dashboard-header">
+            <h1 id="createProjectTitle">Create QI Project</h1>
+            <button class="btn btn-secondary" onclick="showDashboard()">Back to Dashboard</button>
+        </div>
+
+        <div class="settings-section">
+            <div class="form-group">
+                <label for="projectName">Project Name*</label>
+                <input type="text" id="projectName" placeholder="e.g., Wait Time Reduction">
+            </div>
+
+            <div class="form-group">
+                <label for="projectDescription">Description</label>
+                <textarea id="projectDescription" placeholder="Brief description of the QI project..." style="min-height: 80px;"></textarea>
+            </div>
+
+            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Data Collection Variables</h3>
+
+            <div id="variablesList">
+                <!-- Variables will be added here -->
+            </div>
+
+            <button class="btn btn-primary" onclick="addVariable()" style="margin-top: 1rem;">
+                + Add Variable
+            </button>
+
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
+                <button class="btn btn-success btn-large" onclick="saveProject()">Save Project</button>
+                <button class="btn btn-secondary" onclick="showDashboard()" style="margin-left: 1rem;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Detail View -->
+    <div id="projectDetailView" style="display: none;">
+        <div class="dashboard-header">
+            <h1 id="projectDetailTitle"></h1>
+            <button class="btn btn-secondary" onclick="showDashboard()">Back to Dashboard</button>
+        </div>
+
+        <p id="projectDetailDescription" style="color: var(--text-secondary); margin-bottom: 2rem;"></p>
+
+        <!-- Tabs -->
+        <div class="period-buttons" style="margin-bottom: 2rem;">
+            <button class="period-btn active" data-tab="dataEntry" onclick="switchTab('dataEntry')">Data Entry</button>
+            <button class="period-btn" data-tab="viewData" onclick="switchTab('viewData')">View Data</button>
+            <button class="period-btn" data-tab="analysis" onclick="switchTab('analysis')">Analysis</button>
+            <button class="period-btn" data-tab="settings" onclick="switchTab('settings')">Project Settings</button>
+        </div>
+
+        <!-- Data Entry Tab -->
+        <div id="dataEntryTab" class="tab-content" style="display: block;">
+            <div class="settings-section">
+                <h2>Add Data Entry</h2>
+                <form id="dataEntryForm">
+                    <!-- Form fields will be generated based on variables -->
+                </form>
+                <div style="margin-top: 2rem;">
+                    <button class="btn btn-success btn-large" onclick="saveDataEntry()">Save Entry</button>
+                    <button class="btn btn-secondary" onclick="repeatLastEntry()" style="margin-left: 1rem;">Repeat Last</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Data Tab -->
+        <div id="viewDataTab" class="tab-content" style="display: none;">
+            <div class="settings-section">
+                <div class="dashboard-header">
+                    <h2>Data Entries</h2>
+                    <button class="btn btn-primary" onclick="exportProjectData()">Export CSV</button>
+                </div>
+                <div class="table-container" style="margin-top: 1rem;">
+                    <table id="dataTable">
+                        <thead id="dataTableHead">
+                            <!-- Headers will be generated -->
+                        </thead>
+                        <tbody id="dataTableBody">
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="noDataMessage" style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                    No data entries yet
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Tab -->
+        <div id="analysisTab" class="tab-content" style="display: none;">
+            <div class="settings-section">
+                <h2>Statistical Analysis</h2>
+                <div id="statsGrid" class="stats-grid">
+                    <!-- Statistics will be displayed here -->
+                </div>
+            </div>
+
+            <div class="settings-section" style="margin-top: 2rem;">
+                <h2>Visualizations</h2>
+                <div id="chartsContainer">
+                    <!-- Charts will be generated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Project Settings Tab -->
+        <div id="settingsTab" class="tab-content" style="display: none;">
+            <div class="settings-section">
+                <h2>Project Settings</h2>
+                <button class="btn btn-primary" onclick="editProject()">Edit Project Details</button>
+                <button class="btn btn-danger" onclick="deleteProject()" style="margin-left: 1rem;">Delete Project</button>
+                <p style="color: var(--text-secondary); margin-top: 1rem; font-size: 0.9rem;">
+                    Warning: Deleting a project will permanently remove all associated data.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global state
+let currentView = 'dashboard';
+let currentProject = null;
+let currentProjectId = null;
+let projects = [];
+let editingProjectId = null;
+let lastDataEntry = null;
+let sortColumn = null;
+let sortDirection = 'asc';
+
+// Variable types
+const VARIABLE_TYPES = {
+    text: 'Free Text',
+    number: 'Number',
+    dropdown: 'Dropdown',
+    multiselect: 'Multi-Select',
+    date: 'Date',
+    boolean: 'Yes/No'
+};
+
+// Load all projects on page load
+async function loadProjects() {
+    const response = await fetch('/api/qi-projects');
+    projects = await response.json();
+    renderProjectsList();
+}
+
+function renderProjectsList() {
+    const container = document.getElementById('projectsList');
+    const noProjectsMsg = document.getElementById('noProjectsMessage');
+
+    if (projects.length === 0) {
+        container.style.display = 'none';
+        noProjectsMsg.style.display = 'block';
+        return;
+    }
+
+    container.style.display = 'grid';
+    noProjectsMsg.style.display = 'none';
+    container.innerHTML = '';
+
+    projects.forEach(project => {
+        const card = document.createElement('div');
+        card.className = 'stat-card';
+        card.style.cursor = 'pointer';
+        card.onclick = () => viewProject(project.id);
+
+        const variableCount = project.variables ? project.variables.length : 0;
+        const entryCount = project.entry_count || 0;
+        const lastUpdate = new Date(project.updated_at).toLocaleDateString();
+
+        card.innerHTML = `
+            <h3 style="margin-bottom: 0.5rem; color: var(--accent-blue);">${escapeHtml(project.name)}</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem; min-height: 40px;">
+                ${escapeHtml(project.description || 'No description')}
+            </p>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary);">
+                <span>${variableCount} variables</span>
+                <span>${entryCount} entries</span>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary);">
+                Updated: ${lastUpdate}
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+// View management
+function showDashboard() {
+    document.getElementById('dashboardView').style.display = 'block';
+    document.getElementById('createProjectView').style.display = 'none';
+    document.getElementById('projectDetailView').style.display = 'none';
+    currentView = 'dashboard';
+    editingProjectId = null;
+    loadProjects();
+}
+
+function showCreateProject() {
+    document.getElementById('dashboardView').style.display = 'none';
+    document.getElementById('createProjectView').style.display = 'block';
+    document.getElementById('projectDetailView').style.display = 'none';
+    currentView = 'create';
+
+    document.getElementById('createProjectTitle').textContent = 'Create QI Project';
+    document.getElementById('projectName').value = '';
+    document.getElementById('projectDescription').value = '';
+    document.getElementById('variablesList').innerHTML = '';
+    editingProjectId = null;
+
+    // Add one default variable
+    addVariable();
+}
+
+async function viewProject(projectId) {
+    currentProjectId = projectId;
+
+    const response = await fetch(`/api/qi-projects/${projectId}`);
+    currentProject = await response.json();
+
+    document.getElementById('dashboardView').style.display = 'none';
+    document.getElementById('createProjectView').style.display = 'none';
+    document.getElementById('projectDetailView').style.display = 'block';
+    currentView = 'detail';
+
+    document.getElementById('projectDetailTitle').textContent = currentProject.name;
+    document.getElementById('projectDetailDescription').textContent = currentProject.description || '';
+
+    // Switch to data entry tab by default
+    switchTab('dataEntry');
+}
+
+function switchTab(tabName) {
+    // Update buttons
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+            btn.classList.add('active');
+        }
+    });
+
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+
+    // Show selected tab
+    if (tabName === 'dataEntry') {
+        document.getElementById('dataEntryTab').style.display = 'block';
+        renderDataEntryForm();
+    } else if (tabName === 'viewData') {
+        document.getElementById('viewDataTab').style.display = 'block';
+        renderDataTable();
+    } else if (tabName === 'analysis') {
+        document.getElementById('analysisTab').style.display = 'block';
+        renderAnalysis();
+    } else if (tabName === 'settings') {
+        document.getElementById('settingsTab').style.display = 'block';
+    }
+}
+
+// Variable management
+function addVariable() {
+    const container = document.getElementById('variablesList');
+    const index = container.children.length;
+
+    const varDiv = document.createElement('div');
+    varDiv.className = 'custom-field-item';
+    varDiv.style.display = 'block';
+    varDiv.style.marginBottom = '1.5rem';
+
+    varDiv.innerHTML = `
+        <div class="form-row" style="margin-bottom: 1rem;">
+            <div class="form-group">
+                <label>Variable Name*</label>
+                <input type="text" class="var-name" placeholder="e.g., Patient Age">
+            </div>
+            <div class="form-group">
+                <label>Type*</label>
+                <select class="var-type" onchange="toggleOptions(this)">
+                    <option value="">Select type...</option>
+                    ${Object.entries(VARIABLE_TYPES).map(([key, label]) =>
+                        `<option value="${key}">${label}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Required?</label>
+                <select class="var-required">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                </select>
+            </div>
+        </div>
+        <div class="var-options" style="display: none; margin-bottom: 1rem;">
+            <label>Options (one per line)*</label>
+            <textarea class="var-options-text" placeholder="Option 1\nOption 2\nOption 3" style="min-height: 80px;"></textarea>
+        </div>
+        <button type="button" class="btn btn-danger" onclick="this.closest('.custom-field-item').remove()" style="font-size: 0.9rem; padding: 0.5rem 1rem;">
+            Remove Variable
+        </button>
+    `;
+
+    container.appendChild(varDiv);
+}
+
+function toggleOptions(selectElement) {
+    const parent = selectElement.closest('.custom-field-item');
+    const optionsDiv = parent.querySelector('.var-options');
+    const value = selectElement.value;
+
+    if (value === 'dropdown' || value === 'multiselect') {
+        optionsDiv.style.display = 'block';
+    } else {
+        optionsDiv.style.display = 'none';
+    }
+}
+
+async function saveProject() {
+    const name = document.getElementById('projectName').value.trim();
+    const description = document.getElementById('projectDescription').value.trim();
+
+    if (!name) {
+        showFlash('Please enter a project name', 'error');
+        return;
+    }
+
+    // Collect variables
+    const variables = [];
+    const varDivs = document.querySelectorAll('#variablesList .custom-field-item');
+
+    for (const varDiv of varDivs) {
+        const varName = varDiv.querySelector('.var-name').value.trim();
+        const varType = varDiv.querySelector('.var-type').value;
+        const varRequired = varDiv.querySelector('.var-required').value === 'true';
+
+        if (!varName || !varType) {
+            showFlash('All variables must have a name and type', 'error');
+            return;
+        }
+
+        const variable = {
+            name: varName,
+            type: varType,
+            required: varRequired
+        };
+
+        if (varType === 'dropdown' || varType === 'multiselect') {
+            const optionsText = varDiv.querySelector('.var-options-text').value.trim();
+            if (!optionsText) {
+                showFlash(`Please provide options for "${varName}"`, 'error');
+                return;
+            }
+            variable.options = optionsText.split('\n').map(opt => opt.trim()).filter(opt => opt);
+        }
+
+        variables.push(variable);
+    }
+
+    if (variables.length === 0) {
+        showFlash('Please add at least one variable', 'error');
+        return;
+    }
+
+    const projectData = { name, description, variables };
+
+    try {
+        let response;
+        if (editingProjectId) {
+            response = await fetch(`/api/qi-projects/${editingProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(projectData)
+            });
+        } else {
+            response = await fetch('/api/qi-projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(projectData)
+            });
+        }
+
+        if (response.ok) {
+            showFlash(editingProjectId ? 'Project updated!' : 'Project created!', 'success');
+            setTimeout(() => showDashboard(), 1000);
+        } else {
+            showFlash('Error saving project', 'error');
+        }
+    } catch (error) {
+        showFlash('Error saving project', 'error');
+    }
+}
+
+function editProject() {
+    editingProjectId = currentProject.id;
+    document.getElementById('dashboardView').style.display = 'none';
+    document.getElementById('createProjectView').style.display = 'block';
+    document.getElementById('projectDetailView').style.display = 'none';
+    currentView = 'create';
+
+    document.getElementById('createProjectTitle').textContent = 'Edit QI Project';
+    document.getElementById('projectName').value = currentProject.name;
+    document.getElementById('projectDescription').value = currentProject.description || '';
+
+    const container = document.getElementById('variablesList');
+    container.innerHTML = '';
+
+    currentProject.variables.forEach(variable => {
+        addVariable();
+        const varDiv = container.lastElementChild;
+        varDiv.querySelector('.var-name').value = variable.name;
+        varDiv.querySelector('.var-type').value = variable.type;
+        varDiv.querySelector('.var-required').value = variable.required.toString();
+
+        if (variable.options) {
+            varDiv.querySelector('.var-options').style.display = 'block';
+            varDiv.querySelector('.var-options-text').value = variable.options.join('\n');
+        }
+    });
+}
+
+async function deleteProject() {
+    if (!confirm(`Are you sure you want to delete "${currentProject.name}"? This will permanently delete all data associated with this project.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/qi-projects/${currentProject.id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showFlash('Project deleted', 'success');
+            setTimeout(() => showDashboard(), 1000);
+        } else {
+            showFlash('Error deleting project', 'error');
+        }
+    } catch (error) {
+        showFlash('Error deleting project', 'error');
+    }
+}
+
+// Data entry
+function renderDataEntryForm() {
+    const form = document.getElementById('dataEntryForm');
+    form.innerHTML = '';
+
+    currentProject.variables.forEach(variable => {
+        const formGroup = document.createElement('div');
+        formGroup.className = 'form-group';
+
+        const label = document.createElement('label');
+        label.textContent = variable.name + (variable.required ? '*' : '');
+        formGroup.appendChild(label);
+
+        let input;
+        switch (variable.type) {
+            case 'text':
+                input = document.createElement('input');
+                input.type = 'text';
+                input.dataset.varName = variable.name;
+                input.dataset.varType = variable.type;
+                input.required = variable.required;
+                break;
+
+            case 'number':
+                input = document.createElement('input');
+                input.type = 'number';
+                input.step = 'any';
+                input.dataset.varName = variable.name;
+                input.dataset.varType = variable.type;
+                input.required = variable.required;
+                break;
+
+            case 'date':
+                input = document.createElement('input');
+                input.type = 'date';
+                input.dataset.varName = variable.name;
+                input.dataset.varType = variable.type;
+                input.required = variable.required;
+                break;
+
+            case 'boolean':
+                input = document.createElement('select');
+                input.dataset.varName = variable.name;
+                input.dataset.varType = variable.type;
+                input.required = variable.required;
+                input.innerHTML = `
+                    <option value="">Select...</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                `;
+                break;
+
+            case 'dropdown':
+                input = document.createElement('select');
+                input.dataset.varName = variable.name;
+                input.dataset.varType = variable.type;
+                input.required = variable.required;
+                let optionsHtml = '<option value="">Select...</option>';
+                variable.options.forEach(opt => {
+                    optionsHtml += `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`;
+                });
+                input.innerHTML = optionsHtml;
+                break;
+
+            case 'multiselect':
+                input = document.createElement('div');
+                input.dataset.varName = variable.name;
+                input.dataset.varType = variable.type;
+                input.dataset.required = variable.required;
+                input.style.display = 'flex';
+                input.style.flexDirection = 'column';
+                input.style.gap = '0.5rem';
+
+                variable.options.forEach(opt => {
+                    const checkDiv = document.createElement('label');
+                    checkDiv.style.display = 'flex';
+                    checkDiv.style.alignItems = 'center';
+                    checkDiv.style.gap = '0.5rem';
+                    checkDiv.style.cursor = 'pointer';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = opt;
+                    checkbox.style.width = '18px';
+                    checkbox.style.height = '18px';
+
+                    checkDiv.appendChild(checkbox);
+                    checkDiv.appendChild(document.createTextNode(opt));
+                    input.appendChild(checkDiv);
+                });
+                break;
+        }
+
+        formGroup.appendChild(input);
+        form.appendChild(formGroup);
+    });
+}
+
+async function saveDataEntry() {
+    const form = document.getElementById('dataEntryForm');
+    const data = {};
+
+    // Collect data from form
+    for (const variable of currentProject.variables) {
+        const element = form.querySelector(`[data-var-name="${variable.name}"]`);
+
+        let value;
+        if (variable.type === 'multiselect') {
+            const checkboxes = element.querySelectorAll('input[type="checkbox"]:checked');
+            value = Array.from(checkboxes).map(cb => cb.value);
+            if (variable.required && value.length === 0) {
+                showFlash(`${variable.name} is required`, 'error');
+                return;
+            }
+        } else {
+            value = element.value;
+            if (variable.required && !value) {
+                showFlash(`${variable.name} is required`, 'error');
+                return;
+            }
+        }
+
+        if (value !== '' && !(Array.isArray(value) && value.length === 0)) {
+            data[variable.name] = value;
+        }
+    }
+
+    try {
+        const response = await fetch(`/api/qi-projects/${currentProject.id}/entries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            showFlash('Entry saved!', 'success');
+            lastDataEntry = data;
+
+            // Reset form
+            form.reset();
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+            // Reload project to update entry count
+            const projectResponse = await fetch(`/api/qi-projects/${currentProject.id}`);
+            currentProject = await projectResponse.json();
+        } else {
+            showFlash('Error saving entry', 'error');
+        }
+    } catch (error) {
+        showFlash('Error saving entry', 'error');
+    }
+}
+
+function repeatLastEntry() {
+    if (!lastDataEntry) {
+        showFlash('No previous entry to repeat', 'error');
+        return;
+    }
+
+    const form = document.getElementById('dataEntryForm');
+
+    for (const [varName, value] of Object.entries(lastDataEntry)) {
+        const element = form.querySelector(`[data-var-name="${varName}"]`);
+        if (!element) continue;
+
+        const varType = element.dataset.varType;
+
+        if (varType === 'multiselect') {
+            const checkboxes = element.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = value.includes(cb.value);
+            });
+        } else {
+            element.value = value;
+        }
+    }
+
+    showFlash('Last entry loaded', 'success');
+}
+
+// Data viewing
+function renderDataTable() {
+    const thead = document.getElementById('dataTableHead');
+    const tbody = document.getElementById('dataTableBody');
+    const noDataMsg = document.getElementById('noDataMessage');
+
+    if (!currentProject.entries || currentProject.entries.length === 0) {
+        document.querySelector('#viewDataTab .table-container').style.display = 'none';
+        noDataMsg.style.display = 'block';
+        return;
+    }
+
+    document.querySelector('#viewDataTab .table-container').style.display = 'block';
+    noDataMsg.style.display = 'none';
+
+    // Build headers
+    let headersHtml = '<tr><th onclick="sortData(\'id\')">ID</th><th onclick="sortData(\'created_at\')">Date</th>';
+    currentProject.variables.forEach(variable => {
+        headersHtml += `<th onclick="sortData('${escapeHtml(variable.name)}')">${escapeHtml(variable.name)}</th>`;
+    });
+    headersHtml += '<th>Actions</th></tr>';
+    thead.innerHTML = headersHtml;
+
+    // Build rows
+    tbody.innerHTML = '';
+    const entries = [...currentProject.entries]; // Copy for sorting
+
+    if (sortColumn) {
+        entries.sort((a, b) => {
+            let aVal, bVal;
+
+            if (sortColumn === 'id') {
+                aVal = a.id;
+                bVal = b.id;
+            } else if (sortColumn === 'created_at') {
+                aVal = new Date(a.created_at);
+                bVal = new Date(b.created_at);
+            } else {
+                aVal = a.data[sortColumn] || '';
+                bVal = b.data[sortColumn] || '';
+
+                // Handle arrays
+                if (Array.isArray(aVal)) aVal = aVal.join(', ');
+                if (Array.isArray(bVal)) bVal = bVal.join(', ');
+            }
+
+            if (sortDirection === 'asc') {
+                return aVal > bVal ? 1 : -1;
+            } else {
+                return aVal < bVal ? 1 : -1;
+            }
+        });
+    }
+
+    entries.forEach(entry => {
+        const row = document.createElement('tr');
+
+        const dateStr = new Date(entry.created_at).toLocaleDateString();
+
+        let rowHtml = `<td>${entry.id}</td><td>${dateStr}</td>`;
+        currentProject.variables.forEach(variable => {
+            let value = entry.data[variable.name];
+            if (Array.isArray(value)) {
+                value = value.join(', ');
+            }
+            rowHtml += `<td>${escapeHtml(value || '')}</td>`;
+        });
+        rowHtml += `<td><button class="btn btn-danger" onclick="deleteEntry(${entry.id})" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">Delete</button></td>`;
+
+        row.innerHTML = rowHtml;
+        tbody.appendChild(row);
+    });
+}
+
+function sortData(column) {
+    if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortColumn = column;
+        sortDirection = 'asc';
+    }
+    renderDataTable();
+}
+
+async function deleteEntry(entryId) {
+    if (!confirm('Delete this entry?')) return;
+
+    try {
+        const response = await fetch(`/api/qi-projects/${currentProject.id}/entries/${entryId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showFlash('Entry deleted', 'success');
+
+            // Reload project data
+            const projectResponse = await fetch(`/api/qi-projects/${currentProject.id}`);
+            currentProject = await projectResponse.json();
+            renderDataTable();
+        } else {
+            showFlash('Error deleting entry', 'error');
+        }
+    } catch (error) {
+        showFlash('Error deleting entry', 'error');
+    }
+}
+
+// Analysis
+function renderAnalysis() {
+    if (!currentProject.entries || currentProject.entries.length === 0) {
+        document.getElementById('statsGrid').innerHTML = '<p style="color: var(--text-secondary);">No data available for analysis</p>';
+        document.getElementById('chartsContainer').innerHTML = '';
+        return;
+    }
+
+    // Calculate statistics
+    const stats = calculateStatistics();
+    renderStatistics(stats);
+    renderCharts(stats);
+}
+
+function calculateStatistics() {
+    const stats = {
+        totalEntries: currentProject.entries.length,
+        variables: {}
+    };
+
+    currentProject.variables.forEach(variable => {
+        const varStats = {
+            name: variable.name,
+            type: variable.type,
+            values: []
+        };
+
+        currentProject.entries.forEach(entry => {
+            const value = entry.data[variable.name];
+            if (value !== undefined && value !== null && value !== '') {
+                if (Array.isArray(value)) {
+                    varStats.values.push(...value);
+                } else {
+                    varStats.values.push(value);
+                }
+            }
+        });
+
+        // Calculate type-specific statistics
+        if (variable.type === 'number') {
+            const numbers = varStats.values.map(Number).filter(n => !isNaN(n));
+            if (numbers.length > 0) {
+                varStats.mean = (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(2);
+                varStats.median = calculateMedian(numbers);
+                varStats.min = Math.min(...numbers);
+                varStats.max = Math.max(...numbers);
+            }
+        } else {
+            // Count frequencies for categorical variables
+            varStats.frequencies = {};
+            varStats.values.forEach(val => {
+                varStats.frequencies[val] = (varStats.frequencies[val] || 0) + 1;
+            });
+
+            // Find most common
+            if (Object.keys(varStats.frequencies).length > 0) {
+                const sorted = Object.entries(varStats.frequencies).sort((a, b) => b[1] - a[1]);
+                varStats.mostCommon = sorted[0][0];
+                varStats.mostCommonCount = sorted[0][1];
+            }
+        }
+
+        stats.variables[variable.name] = varStats;
+    });
+
+    return stats;
+}
+
+function calculateMedian(numbers) {
+    const sorted = [...numbers].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? ((sorted[mid - 1] + sorted[mid]) / 2).toFixed(2) : sorted[mid].toFixed(2);
+}
+
+function renderStatistics(stats) {
+    const container = document.getElementById('statsGrid');
+    container.innerHTML = '';
+
+    // Total entries card
+    const totalCard = document.createElement('div');
+    totalCard.className = 'stat-card';
+    totalCard.innerHTML = `
+        <div class="stat-label">Total Entries</div>
+        <div class="stat-value">${stats.totalEntries}</div>
+    `;
+    container.appendChild(totalCard);
+
+    // Variable statistics
+    Object.entries(stats.variables).forEach(([name, varStats]) => {
+        const card = document.createElement('div');
+        card.className = 'stat-card';
+
+        let content = `<div class="stat-label">${escapeHtml(name)}</div>`;
+
+        if (varStats.type === 'number') {
+            content += `
+                <div class="stat-value">${varStats.mean || 'N/A'}</div>
+                <div class="stat-breakdown">
+                    <div class="stat-breakdown-item">
+                        <span>Median:</span> <span>${varStats.median || 'N/A'}</span>
+                    </div>
+                    <div class="stat-breakdown-item">
+                        <span>Range:</span> <span>${varStats.min || 'N/A'} - ${varStats.max || 'N/A'}</span>
+                    </div>
+                </div>
+            `;
+        } else {
+            content += `
+                <div class="stat-value" style="font-size: 1.2rem;">${escapeHtml(varStats.mostCommon || 'N/A')}</div>
+                <div class="stat-breakdown">
+                    <div class="stat-breakdown-item">
+                        <span>Most Common:</span> <span>${varStats.mostCommonCount || 0} times</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        card.innerHTML = content;
+        container.appendChild(card);
+    });
+}
+
+function renderCharts(stats) {
+    const container = document.getElementById('chartsContainer');
+    container.innerHTML = '';
+
+    Object.entries(stats.variables).forEach(([name, varStats]) => {
+        const chartDiv = document.createElement('div');
+        chartDiv.className = 'chart-container';
+
+        const canvas = document.createElement('canvas');
+        canvas.id = `chart-${name.replace(/\s+/g, '-')}`;
+        chartDiv.appendChild(canvas);
+        container.appendChild(chartDiv);
+
+        if (varStats.type === 'number') {
+            // Line chart for numeric data
+            const values = currentProject.entries.map((entry, index) => ({
+                x: index + 1,
+                y: Number(entry.data[name]) || 0
+            })).filter(point => point.y !== 0);
+
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: name,
+                        data: values,
+                        borderColor: 'rgb(10, 132, 255)',
+                        backgroundColor: 'rgba(10, 132, 255, 0.1)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: name + ' Over Time',
+                            color: '#ffffff'
+                        },
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Entry Number',
+                                color: '#ffffff'
+                            },
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: name,
+                                color: '#ffffff'
+                            },
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Bar chart for categorical data
+            const frequencies = varStats.frequencies || {};
+            const labels = Object.keys(frequencies);
+            const data = Object.values(frequencies);
+
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Count',
+                        data: data,
+                        backgroundColor: 'rgba(10, 132, 255, 0.8)',
+                        borderColor: 'rgb(10, 132, 255)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: name + ' Distribution',
+                            color: '#ffffff'
+                        },
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#a0a0a0', stepSize: 1 },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+    });
+}
+
+// Export
+async function exportProjectData() {
+    window.location.href = `/api/qi-projects/${currentProject.id}/export`;
+}
+
+// Utility functions
+function showFlash(message, type = 'success') {
+    const flash = document.getElementById('flashMessage');
+    flash.textContent = message;
+    flash.style.backgroundColor = type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)';
+    flash.style.display = 'block';
+
+    setTimeout(() => {
+        flash.style.display = 'none';
+    }, 3000);
+}
+
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Initialize
+loadProjects();
+</script>
+{% endblock %}

@@ -89,6 +89,29 @@ class Database:
             )
         ''')
 
+        # QI Projects table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS qi_projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                variables TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # QI Project Data table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS qi_project_data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                data TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES qi_projects (id) ON DELETE CASCADE
+            )
+        ''')
+
         # Add day_of_week column to existing visits table if it doesn't exist
         try:
             cursor.execute('ALTER TABLE visits ADD COLUMN day_of_week TEXT')
@@ -306,6 +329,139 @@ class Database:
     def set_wrvu_conversion_rate(self, rate: float):
         """Set the wRVU to dollar conversion rate"""
         self.set_setting('wrvu_conversion_rate', str(rate))
+
+    # QI Project operations
+    def create_qi_project(self, name: str, description: str, variables: List[Dict]) -> int:
+        """Create a new QI project"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO qi_projects (name, description, variables)
+            VALUES (?, ?, ?)
+        ''', (name, description, json.dumps(variables)))
+
+        project_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return project_id
+
+    def get_qi_projects(self) -> List[Dict]:
+        """Get all QI projects"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT * FROM qi_projects ORDER BY updated_at DESC')
+
+        projects = []
+        for row in cursor.fetchall():
+            project = dict(row)
+            project['variables'] = json.loads(project['variables'])
+
+            # Get entry count for this project
+            cursor.execute('SELECT COUNT(*) as count FROM qi_project_data WHERE project_id = ?',
+                         (project['id'],))
+            count_row = cursor.fetchone()
+            project['entry_count'] = count_row['count'] if count_row else 0
+
+            projects.append(project)
+
+        conn.close()
+        return projects
+
+    def get_qi_project(self, project_id: int) -> Optional[Dict]:
+        """Get a specific QI project"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('SELECT * FROM qi_projects WHERE id = ?', (project_id,))
+        row = cursor.fetchone()
+
+        if row:
+            project = dict(row)
+            project['variables'] = json.loads(project['variables'])
+            conn.close()
+            return project
+
+        conn.close()
+        return None
+
+    def update_qi_project(self, project_id: int, name: str, description: str, variables: List[Dict]):
+        """Update a QI project"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            UPDATE qi_projects
+            SET name = ?, description = ?, variables = ?, updated_at = ?
+            WHERE id = ?
+        ''', (name, description, json.dumps(variables), datetime.now().isoformat(), project_id))
+
+        conn.commit()
+        conn.close()
+
+    def delete_qi_project(self, project_id: int):
+        """Delete a QI project and all its data"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        # Delete project data first
+        cursor.execute('DELETE FROM qi_project_data WHERE project_id = ?', (project_id,))
+        # Delete project
+        cursor.execute('DELETE FROM qi_projects WHERE id = ?', (project_id,))
+
+        conn.commit()
+        conn.close()
+
+    def create_qi_project_entry(self, project_id: int, data: Dict) -> int:
+        """Create a new data entry for a QI project"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO qi_project_data (project_id, data)
+            VALUES (?, ?)
+        ''', (project_id, json.dumps(data)))
+
+        # Update project's updated_at timestamp
+        cursor.execute('''
+            UPDATE qi_projects
+            SET updated_at = ?
+            WHERE id = ?
+        ''', (datetime.now().isoformat(), project_id))
+
+        entry_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return entry_id
+
+    def get_qi_project_entries(self, project_id: int) -> List[Dict]:
+        """Get all data entries for a QI project"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT * FROM qi_project_data
+            WHERE project_id = ?
+            ORDER BY created_at DESC
+        ''', (project_id,))
+
+        entries = []
+        for row in cursor.fetchall():
+            entry = dict(row)
+            entry['data'] = json.loads(entry['data'])
+            entries.append(entry)
+
+        conn.close()
+        return entries
+
+    def delete_qi_project_entry(self, entry_id: int):
+        """Delete a QI project data entry"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM qi_project_data WHERE id = ?', (entry_id,))
+        conn.commit()
+        conn.close()
 
 # Helper function to calculate wRVUs for a visit
 def calculate_wrvu(billing_codes: str) -> float:
