@@ -403,6 +403,116 @@ def import_visits():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# QI Project routes
+@app.route('/qi-projects')
+def qi_projects():
+    """QI Projects main page"""
+    return render_template('qi_projects.html')
+
+@app.route('/api/qi-projects', methods=['GET'])
+def get_qi_projects():
+    """Get all QI projects"""
+    projects = db.get_qi_projects()
+    return jsonify(projects)
+
+@app.route('/api/qi-projects', methods=['POST'])
+def create_qi_project():
+    """Create a new QI project"""
+    data = request.json
+    project_id = db.create_qi_project(
+        data['name'],
+        data.get('description', ''),
+        data['variables']
+    )
+    return jsonify({'id': project_id, 'success': True})
+
+@app.route('/api/qi-projects/<int:project_id>', methods=['GET'])
+def get_qi_project(project_id):
+    """Get a specific QI project with its entries"""
+    project = db.get_qi_project(project_id)
+    if not project:
+        return jsonify({'error': 'Project not found'}), 404
+
+    entries = db.get_qi_project_entries(project_id)
+    project['entries'] = entries
+    return jsonify(project)
+
+@app.route('/api/qi-projects/<int:project_id>', methods=['PUT'])
+def update_qi_project(project_id):
+    """Update a QI project"""
+    data = request.json
+    db.update_qi_project(
+        project_id,
+        data['name'],
+        data.get('description', ''),
+        data['variables']
+    )
+    return jsonify({'success': True})
+
+@app.route('/api/qi-projects/<int:project_id>', methods=['DELETE'])
+def delete_qi_project(project_id):
+    """Delete a QI project"""
+    db.delete_qi_project(project_id)
+    return jsonify({'success': True})
+
+@app.route('/api/qi-projects/<int:project_id>/entries', methods=['POST'])
+def create_qi_project_entry(project_id):
+    """Create a new data entry for a QI project"""
+    data = request.json
+    entry_id = db.create_qi_project_entry(project_id, data)
+    return jsonify({'id': entry_id, 'success': True})
+
+@app.route('/api/qi-projects/<int:project_id>/entries/<int:entry_id>', methods=['DELETE'])
+def delete_qi_project_entry(project_id, entry_id):
+    """Delete a QI project data entry"""
+    db.delete_qi_project_entry(entry_id)
+    return jsonify({'success': True})
+
+@app.route('/api/qi-projects/<int:project_id>/export')
+def export_qi_project(project_id):
+    """Export QI project data to CSV"""
+    project = db.get_qi_project(project_id)
+    if not project:
+        return jsonify({'error': 'Project not found'}), 404
+
+    entries = db.get_qi_project_entries(project_id)
+
+    # Prepare data for CSV export
+    if not entries:
+        return jsonify({'error': 'No data to export'}), 400
+
+    # Build column headers
+    headers = ['Entry ID', 'Created At']
+    for var in project['variables']:
+        headers.append(var['name'])
+
+    export_data = []
+    for entry in entries:
+        row = {
+            'Entry ID': entry['id'],
+            'Created At': entry['created_at']
+        }
+        for var in project['variables']:
+            value = entry['data'].get(var['name'], '')
+            # Convert lists to semicolon-separated strings
+            if isinstance(value, list):
+                value = '; '.join(str(v) for v in value)
+            row[var['name']] = value
+
+        export_data.append(row)
+
+    df = pd.DataFrame(export_data)
+
+    output = BytesIO()
+    df.to_csv(output, index=False)
+    output.seek(0)
+
+    filename = f"qi_project_{project['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return send_file(output,
+                     mimetype='text/csv',
+                     as_attachment=True,
+                     download_name=filename)
+
 @app.template_filter('format_duration')
 def format_duration_filter(seconds):
     return format_duration(seconds)
