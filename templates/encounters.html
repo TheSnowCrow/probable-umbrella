@@ -179,12 +179,14 @@ async function loadBillingCodes() {
     const wellEst = ['99391', '99392', '99393', '99394', '99395'];
     const modifier = ['25'];
 
+    // Combine sick visits and well visits for compact layout
+    const sickVisits = [...established, ...newPatient];
+    const wellVisits = [...wellNew, ...wellEst];
+
     const categories = [
-        {title: 'Established Patient', codes: established},
-        {title: 'New Patient', codes: newPatient},
-        {title: 'Well Visit (New)', codes: wellNew},
-        {title: 'Well Visit (Established)', codes: wellEst},
-        {title: 'Modifier', codes: modifier}
+        {title: 'Sick Visits (Established & New)', codes: sickVisits, gridClass: 'billing-buttons-grid-4col'},
+        {title: 'Well Visits (New & Established)', codes: wellVisits, gridClass: 'billing-buttons-grid-7col'},
+        {title: 'Modifier', codes: modifier, gridClass: 'billing-buttons-grid'}
     ];
 
     categories.forEach(category => {
@@ -197,7 +199,7 @@ async function loadBillingCodes() {
         categoryDiv.appendChild(categoryTitle);
 
         const gridDiv = document.createElement('div');
-        gridDiv.className = 'billing-buttons-grid';
+        gridDiv.className = category.gridClass || 'billing-buttons-grid';
 
         category.codes.forEach(code => {
             if (wrvuLookup[code]) {
@@ -236,12 +238,14 @@ async function loadManualBillingCodes() {
     const wellEst = ['99391', '99392', '99393', '99394', '99395'];
     const modifier = ['25'];
 
+    // Combine sick visits and well visits for compact layout
+    const sickVisits = [...established, ...newPatient];
+    const wellVisits = [...wellNew, ...wellEst];
+
     const categories = [
-        {title: 'Established Patient', codes: established},
-        {title: 'New Patient', codes: newPatient},
-        {title: 'Well Visit (New)', codes: wellNew},
-        {title: 'Well Visit (Established)', codes: wellEst},
-        {title: 'Modifier', codes: modifier}
+        {title: 'Sick Visits (Established & New)', codes: sickVisits, gridClass: 'billing-buttons-grid-4col'},
+        {title: 'Well Visits (New & Established)', codes: wellVisits, gridClass: 'billing-buttons-grid-7col'},
+        {title: 'Modifier', codes: modifier, gridClass: 'billing-buttons-grid'}
     ];
 
     categories.forEach(category => {
@@ -254,7 +258,7 @@ async function loadManualBillingCodes() {
         categoryDiv.appendChild(categoryTitle);
 
         const gridDiv = document.createElement('div');
-        gridDiv.className = 'billing-buttons-grid';
+        gridDiv.className = category.gridClass || 'billing-buttons-grid';
 
         category.codes.forEach(code => {
             if (wrvuLookup[code]) {
@@ -629,6 +633,11 @@ function autoSelectBillingCode(patientType) {
     if (!window.currentVisitData) {
         alert('No visit data available');
         return;
+    }
+
+    // Pause the timer if it's running (not already paused)
+    if (!isPaused && timerInterval) {
+        pauseTimer();
     }
 
     const durationMinutes = Math.floor(window.currentVisitData.activeDuration / 60);

@@ -487,6 +487,42 @@ tbody tr:hover {
     gap: 0.75rem;
 }
 
+/* Specific grid layouts for adult codes */
+.billing-buttons-grid-4col {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+}
+
+.billing-buttons-grid-7col {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 1400px) {
+    .billing-buttons-grid-7col {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+@media (max-width: 1024px) {
+    .billing-buttons-grid-7col {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .billing-buttons-grid-4col {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .billing-buttons-grid-7col,
+    .billing-buttons-grid-4col {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 .billing-btn {
     background-color: var(--bg-tertiary);
     border: 2px solid var(--border-color);
